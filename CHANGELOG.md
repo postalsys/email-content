@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.2](https://github.com/postalsys/email-content/compare/v0.0.1...v0.0.2) (2026-07-26)
+
+
+### Features
+
+* email content extraction library ([655573c](https://github.com/postalsys/email-content/commit/655573c2864b5c5f6d8b551dff9140a49dc719cd))
+
+
+### Bug Fixes
+
+* keep the extractor version in step with the release ([118d660](https://github.com/postalsys/email-content/commit/118d6605e963861129cf52e00252d2f139516187))
+
+## Changelog
+
 All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
