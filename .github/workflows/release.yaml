@@ -36,5 +36,6 @@ jobs:
       - run: npm ci
       - run: npm test
       # Authentication is npm trusted publishing over OIDC: no token, and id-token: write above.
-      # Provenance is generated automatically when publishing from a trusted publisher.
-      - run: npm publish
+      # Provenance is a separate concern from authentication and must still be requested. Publishing
+      # 0.0.2 without this flag succeeded but produced no attestation.
+      - run: npm publish --provenance
