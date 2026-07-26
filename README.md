@@ -41,6 +41,18 @@ needs **Node 22.5 or later**, because it uses the built in `node:sqlite`. That m
 lazily, so it never touches a host that only calls `analyze()` or `extract()`. Running those
 commands on an older runtime reports the requirement rather than failing obscurely.
 
+### Bundling with @yao-pkg/pkg
+
+Verified working as a single file binary on macOS arm64, Linux x64 and Windows x64, built against
+Node 24 and each producing byte identical classifications.
+
+**No pkg configuration is required.** The detector pattern files are read at runtime through
+`path.join(__dirname, 'patterns')`, a form pkg detects statically and bundles automatically. Adding
+them to `pkg.assets` also works but is unnecessary.
+
+If the patterns ever fail to bundle, the library throws at load rather than degrading silently,
+because the alternative is a binary that recognises no reply history at all and reports no error.
+
 ## Build from source
 
 Requires Node 24 for the development workflow.

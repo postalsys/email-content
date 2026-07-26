@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { fingerprintClient } from '../src/detect/client';
-import { loadPatterns } from '../src/detect/patterns';
+import { assertPatternsLoaded, countPatterns, loadPatterns, resetPatternCache } from '../src/detect/patterns';
 import { classifyTraffic } from '../src/detect/traffic';
 import { type HeaderEntry, type MessageHeaders } from '../src/mime/model';
 
@@ -143,5 +143,36 @@ describe('classifyTraffic', () => {
     it('does not misclassify a person whose name contains "reply"', () => {
         const result = classifyTraffic(headers({ from: 'Ripley Scott <ripley@example.com>', messageId: 'x@y' }), entries([]));
         assert.equal(result.traffic, 'human');
+    });
+});
+
+describe('pattern loading is fail loud', () => {
+    it('throws when nothing loaded, so a packaging failure cannot pass silently', () => {
+        const empty = {
+            replyHeaders: [],
+            forwardHeaders: [],
+            quotedHeaderFields: [],
+            signatureDelimiters: [],
+            signaturePhrases: [],
+            disclaimerPhrases: [],
+            htmlSelectors: [],
+            invalid: []
+        };
+        assert.equal(countPatterns(empty), 0);
+        assert.throws(() => assertPatternsLoaded(empty, '/somewhere'), /No detector patterns could be loaded/);
+    });
+
+    it('accepts the bundled set', () => {
+        const patterns = loadPatterns();
+        assert.ok(countPatterns(patterns) > 50);
+        assert.doesNotThrow(() => assertPatternsLoaded(patterns, 'bundled'));
+    });
+
+    it('falls back to the bundled files when an override directory lacks them', () => {
+        // The override is per file by design, so a directory containing only some replacements
+        // still gets the rest from the bundle.
+        const patterns = loadPatterns('/nonexistent/pattern/directory');
+        assert.ok(patterns.replyHeaders.length > 0);
+        resetPatternCache();
     });
 });

@@ -127,6 +127,41 @@ function compileSelectors(input: unknown, invalid: string[]): SelectorPattern[] 
     return out;
 }
 
+/** Total compiled patterns across every set. */
+export function countPatterns(sets: PatternSets): number {
+    return (
+        sets.replyHeaders.length +
+        sets.forwardHeaders.length +
+        sets.quotedHeaderFields.length +
+        sets.signatureDelimiters.length +
+        sets.signaturePhrases.length +
+        sets.disclaimerPhrases.length +
+        sets.htmlSelectors.length
+    );
+}
+
+/**
+ * Fail loudly when no pattern survived loading.
+ *
+ * The bundled patterns are read from disk at runtime through path.join(__dirname, 'patterns').
+ * @yao-pkg/pkg detects that form and bundles the directory automatically, which is why consumers
+ * need no pkg asset configuration, but it is a static analysis heuristic rather than a guarantee.
+ * If it ever fails, or the files are missing from a published tarball, every detector quietly
+ * returns nothing: no reply header is recognised and reply history stops being detected.
+ *
+ * The failure direction is at least the safe one, since nothing can be hidden without an anchor.
+ * But a build that silently extracts nothing useful should not pass unnoticed.
+ */
+export function assertPatternsLoaded(sets: PatternSets, source: string): void {
+    if (countPatterns(sets) === 0) {
+        throw new Error(
+            `No detector patterns could be loaded from ${source}. ` +
+                'The pattern JSON files are missing from the installation or the bundle. ' +
+                'Without them no reply history can be detected.'
+        );
+    }
+}
+
 let cached: PatternSets | null = null;
 
 /** Load and compile all pattern sets. Cached after the first call. */
@@ -154,6 +189,8 @@ export function loadPatterns(overrideDir?: string | null): PatternSets {
         htmlSelectors: compileSelectors(html.selectors, invalid),
         invalid
     };
+
+    assertPatternsLoaded(sets, dir ?? BUNDLED_DIR);
 
     if (overrideDir === undefined) {
         cached = sets;

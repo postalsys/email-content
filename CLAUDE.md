@@ -45,7 +45,12 @@ and delegates to it. Never duplicate pipeline logic between them.
   bundled with `@yao-pkg/pkg`.
 - **The library runs on Node 20; the corpus tooling needs Node 22.5 for `node:sqlite`.** Keep that
   split: nothing reachable from `src/index.ts` may use an API newer than Node 20, and `node:sqlite`
-  stays lazily loaded so requiring the package never pulls it in. CI tests both runtimes.
+  stays lazily loaded so requiring the package never pulls it in. CI tests both runtimes. The Node 20
+  floor is for source installs; EmailEngine's pkg binaries are built against Node 24.
+- **Pattern files must stay loadable through `path.join(__dirname, 'patterns')`.** That exact form is
+  what lets @yao-pkg/pkg bundle them without any asset configuration. Computing the path any other
+  way would break single file binaries, and the symptom is silent: no detectors, no error. Verified
+  on macOS, Linux and Windows binaries.
 - Prettier: 160 columns, 4 spaces, single quotes, LF, no trailing commas, `arrowParens: avoid`.
 - `node:test` with `node:assert/strict`, files named `*.test.ts`. Tests run against the compiled
   output, never the sources.
