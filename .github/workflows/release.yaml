@@ -35,6 +35,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm publish --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Authentication is npm trusted publishing over OIDC: no token, and id-token: write above.
+      # Provenance is generated automatically when publishing from a trusted publisher.
+      - run: npm publish

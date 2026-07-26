@@ -7,11 +7,18 @@
  * band but never dropped.
  */
 
-/** Version of the deterministic extraction logic. Bump on any change that can alter a label. */
-export const EXTRACTOR_VERSION = '0.1.0';
+/**
+ * Version of the deterministic extraction logic, stamped into every result.
+ *
+ * Kept in step with the released package version by release-please, rather than bumped by hand.
+ * Hand bumping did not survive contact with reality: extraction changed repeatedly while this
+ * constant stayed at its initial value, so every stored result claimed a version that no longer
+ * described the code that produced it.
+ */
+export const EXTRACTOR_VERSION = '0.0.1'; // x-release-please-version
 
 /** Version of the corpus processing pipeline (scanner, feature extraction, storage schema). */
-export const PROCESSING_VERSION = '0.1.0';
+export const PROCESSING_VERSION = '0.0.1'; // x-release-please-version
 
 /** Final block classification. */
 export type Label = 'NEW_CONTENT' | 'INLINE_QUOTE' | 'REPLY_HISTORY' | 'FORWARDED_CONTENT' | 'SIGNATURE' | 'DISCLAIMER' | 'UNKNOWN';
