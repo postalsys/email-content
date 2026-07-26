@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.5](https://github.com/postalsys/email-content/compare/v0.0.4...v0.0.5) (2026-07-26)
+
+
+### Features
+
+* support Node 20 so EmailEngine can consume the library ([5a41627](https://github.com/postalsys/email-content/commit/5a41627df30964f4653cac9b21380ea40f8bd64d))
+
+
+### Bug Fixes
+
+* run the test suite on every supported Node version ([eb7b3f9](https://github.com/postalsys/email-content/commit/eb7b3f95e21b6ef96c84dd96b9b5d33882f15a8f))
+
 ## [0.0.4](https://github.com/postalsys/email-content/compare/v0.0.3...v0.0.4) (2026-07-26)
 
 
