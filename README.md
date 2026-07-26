@@ -26,9 +26,24 @@ In practice that means:
 - No generative model touches the sender's words. The pipeline selects and classifies existing
   spans; it never rewrites, summarises or paraphrases.
 
-## Install and build
+## Install
 
-Requires Node 24 or later, for the built in `node:sqlite` and native TypeScript execution.
+```bash
+npm install @postalsys/email-content
+```
+
+**Runtime requirements.** The library is plain CommonJS JavaScript with no compiled dependencies,
+and runs on **Node 20 or later**. Nothing in the dependency tree is native: `@zone-eu/mailsplit`,
+`libmime` and `node-html-parser` are pure JavaScript, and none of them is ESM only.
+
+The corpus tooling shipped in the same package (`corpus`, `annotate`, `evaluate`, `benchmark`)
+needs **Node 22.5 or later**, because it uses the built in `node:sqlite`. That module is loaded
+lazily, so it never touches a host that only calls `analyze()` or `extract()`. Running those
+commands on an older runtime reports the requirement rather than failing obscurely.
+
+## Build from source
+
+Requires Node 24 for the development workflow.
 
 ```bash
 npm install

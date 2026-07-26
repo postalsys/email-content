@@ -10,6 +10,21 @@ import { parseMessage } from '../src/mime/parse';
 import { deterministicUnit, NEAR_DUPLICATE_THRESHOLD, simhash64, simhashDistance } from '../src/util/hash';
 import { readFixture } from './helpers';
 
+/**
+ * node:sqlite arrived in Node 22.5. The corpus tooling requires it; the extraction library does not.
+ * On an older runtime these tests are skipped rather than failed, so the suite still means something
+ * on the oldest Node the library supports.
+ */
+const HAS_SQLITE = (() => {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('node:sqlite');
+        return true;
+    } catch {
+        return false;
+    }
+})();
+
 function tempDb(): string {
     return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'email-content-test-')), 'corpus.sqlite');
 }
@@ -159,7 +174,7 @@ describe('analyzeMessage', () => {
     });
 });
 
-describe('CorpusStore', () => {
+describe('CorpusStore', { skip: HAS_SQLITE ? false : 'node:sqlite requires Node 22.5 or later' }, () => {
     it('creates the schema, is idempotent, and round trips a batch', async () => {
         const dbPath = tempDb();
         const store = new CorpusStore(dbPath);

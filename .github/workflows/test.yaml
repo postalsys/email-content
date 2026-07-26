@@ -15,8 +15,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # node:sqlite and native TypeScript execution both require Node 24 or later.
-        node-version: [24.x]
+        # 24 is the development runtime, needed by the corpus tooling for node:sqlite. 20 is the
+        # oldest runtime the published library supports, and is tested because consumers such as
+        # EmailEngine run it.
+        node-version: [20.x, 24.x]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

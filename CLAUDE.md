@@ -40,8 +40,12 @@ and delegates to it. Never duplicate pipeline logic between them.
 
 ## Conventions
 
-- TypeScript, strict, compiled to CommonJS. Every runtime dependency must be CJS safe, because this
-  may end up bundled by `@yao-pkg/pkg`.
+- TypeScript, strict, compiled to CommonJS. Every runtime dependency must be CJS safe and pure
+  JavaScript, because this is consumed by EmailEngine, which forbids native modules and ESM and is
+  bundled with `@yao-pkg/pkg`.
+- **The library runs on Node 20; the corpus tooling needs Node 22.5 for `node:sqlite`.** Keep that
+  split: nothing reachable from `src/index.ts` may use an API newer than Node 20, and `node:sqlite`
+  stays lazily loaded so requiring the package never pulls it in. CI tests both runtimes.
 - Prettier: 160 columns, 4 spaces, single quotes, LF, no trailing commas, `arrowParens: avoid`.
 - `node:test` with `node:assert/strict`, files named `*.test.ts`. Tests run against the compiled
   output, never the sources.

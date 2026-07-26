@@ -5,12 +5,16 @@
  * no native build step and no lockfile that can stop working in two years. The corpus is a few
  * hundred thousand rows of small metadata, which is well within its comfortable range.
  *
+ * node:sqlite arrived in Node 22.5, but the extraction library itself runs on Node 20. Loading it
+ * lazily keeps that promise: requiring the package never touches this module, so a Node 20 host can
+ * use analyze() and extract() while only the corpus tooling needs the newer runtime.
+ *
  * The store holds derived metadata only. Raw messages stay on disk, referenced by path, and are
  * never copied. See docs/threat-model.md for what the derived data can still reveal.
  */
 
-import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
+import { type DatabaseSync as DatabaseSyncType } from 'node:sqlite';
 import path from 'node:path';
 import { PROCESSING_VERSION, EXTRACTOR_VERSION } from '../types';
 import { newSalt } from '../util/hash';
@@ -40,8 +44,23 @@ export interface RunOptions {
     [key: string]: unknown;
 }
 
+/**
+ * Load node:sqlite, explaining the requirement rather than failing with ERR_UNKNOWN_BUILTIN_MODULE.
+ */
+function loadDatabaseSync(): typeof DatabaseSyncType {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        return (require('node:sqlite') as { DatabaseSync: typeof DatabaseSyncType }).DatabaseSync;
+    } catch {
+        throw new Error(
+            `The corpus tooling needs the built in node:sqlite module, added in Node 22.5. This is ${process.version}. ` +
+                'The extraction library itself, analyze() and extract(), runs on Node 20 and does not require it.'
+        );
+    }
+}
+
 export class CorpusStore {
-    private readonly db: DatabaseSync;
+    private readonly db: DatabaseSyncType;
     private readonly insertFileStmt;
     private readonly insertMessageStmt;
     private readonly seenStmt;
@@ -53,6 +72,7 @@ export class CorpusStore {
         const dir = path.dirname(path.resolve(file));
         fs.mkdirSync(dir, { recursive: true });
 
+        const DatabaseSync = loadDatabaseSync();
         this.db = new DatabaseSync(file);
         this.db.exec('PRAGMA journal_mode = WAL');
         this.db.exec('PRAGMA synchronous = NORMAL');
