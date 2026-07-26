@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/postalsys/email-content/compare/v0.0.3...v0.0.4) (2026-07-26)
+
+
+### Bug Fixes
+
+* do not request provenance from a private repository ([6fbcee2](https://github.com/postalsys/email-content/commit/6fbcee28f294ccf130a2edae4a6a2296de8f682a))
+
 ## [0.0.3](https://github.com/postalsys/email-content/compare/v0.0.2...v0.0.3) (2026-07-26)
 
 
