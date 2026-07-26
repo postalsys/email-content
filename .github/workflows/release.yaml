@@ -36,6 +36,9 @@ jobs:
       - run: npm ci
       - run: npm test
       # Authentication is npm trusted publishing over OIDC: no token, and id-token: write above.
-      # Provenance is a separate concern from authentication and must still be requested. Publishing
-      # 0.0.2 without this flag succeeded but produced no attestation.
-      - run: npm publish --provenance
+      #
+      # Provenance is deliberately NOT requested. Sigstore rejects attestations built from a private
+      # source repository ("Only public source repositories are supported when publishing with
+      # provenance", npm error E422), and this repository is private. Add --provenance here if and
+      # when the repository is made public.
+      - run: npm publish
