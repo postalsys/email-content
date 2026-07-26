@@ -11,7 +11,7 @@ high until you look at where they differed: roughly half of every disagreement w
 label, `DISCLAIMER`, and the same text was labelled three different ways in different messages.
 
 ```
-Want to know about upcoming build environment updates? ...
+<the same standing promotional footer, appearing in three different notifications>
    gpt-5.5 = DISCLAIMER      gpt-5.6-sol = NEW_CONTENT
    gpt-5.5 = NEW_CONTENT     gpt-5.6-sol = DISCLAIMER
    gpt-5.5 = DISCLAIMER      gpt-5.6-sol = REPLY_HISTORY
@@ -187,13 +187,13 @@ This email is confidential and ...      <- FORWARDED_CONTENT (not DISCLAIMER)
 Your build #421 passed.                 <- NEW_CONTENT
 Want to know about upcoming build
 environment updates? Subscribe to ...   <- DISCLAIMER (standing boilerplate)
-Travis CI, Rigaer Str. 8, Berlin        <- DISCLAIMER (registered address)
+Acme Cloud Ltd, 8 Example Street       <- DISCLAIMER (registered address)
 ```
 
 **A newsletter that is entirely boilerplate.** Rule 2's guard.
 
 ```text
-Happy Holidays from Travis CI! From
+Happy Holidays from a notification service! From
 Dec 19th to Jan 4th the team is
 taking a break ...                      <- NEW_CONTENT (it is the whole message)
 ```

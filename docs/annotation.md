@@ -47,10 +47,10 @@ prompt.
 The first version of the prompt sent block text with quote prefixes already stripped, so the
 annotator could not see that a block was quoted at all.
 
-On a deeply nested Estonian thread, that version labelled quoted greetings and thanks
-("Tänud!", "Suurimad tänud!") at depth 1 through 3 as freshly written content, and sign-offs inside
-quoted messages as the sender's own signature. Every one of those was wrong, and the deterministic
-baseline was right in all eight cases.
+On a deeply nested thread, that version labelled short quoted greetings and thanks at depth 1
+through 3 as freshly written content, and sign-offs inside quoted messages as the sender's own
+signature. Every one of those was wrong, and the deterministic baseline was right in all eight
+cases.
 
 Version 2 shows quote depth per block, exactly as a human annotator reading the raw message would
 see it, and adds one convention: label a block by its role in _this_ message, so a signature inside

@@ -1,6 +1,6 @@
 {
     "name": "@postalsys/email-content",
-    "version": "0.1.0",
+    "version": "0.0.1",
     "description": "Extract conversationally relevant content from arbitrary email messages",
     "keywords": [
         "email",
@@ -36,16 +36,13 @@
         "email-content": "dist/cli/main.js"
     },
     "files": [
-        "dist",
-        "docs",
-        "!docs/corpus-report.md"
+        "dist"
     ],
     "engines": {
         "node": ">=24.0.0"
     },
     "publishConfig": {
-        "access": "public",
-        "provenance": true
+        "access": "public"
     },
     "scripts": {
         "build": "tsc -p tsconfig.json && node scripts/copy-assets.js",
