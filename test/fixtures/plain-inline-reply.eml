@@ -1,0 +1,20 @@
+From: Carol <carol@example.org>
+To: Dave <dave@example.org>
+Subject: Re: Release checklist
+Date: Tue, 14 Jan 2025 08:00:00 +0000
+Message-ID: <inline-001@example.org>
+In-Reply-To: <parent-001@example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+
+> Should we deploy this today?
+
+No, wait until Monday.
+
+> Should I notify the customer?
+
+Yes, please.
+
+-- 
+Carol
+Release manager

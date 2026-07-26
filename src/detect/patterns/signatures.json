@@ -1,0 +1,58 @@
+{
+    "description": "Signature evidence. Signatures are demoted, never deleted, so these patterns only need to be good enough to collapse a trailing block. The RFC 3676 delimiter is the only high confidence rule; everything else is positional evidence that the sequence classifier weighs.",
+    "delimiters": [
+        {
+            "id": "dash_dash_space",
+            "strength": 0.95,
+            "flags": "",
+            "pattern": "^-- ?$"
+        },
+        {
+            "id": "dash_run",
+            "strength": 0.4,
+            "flags": "",
+            "pattern": "^\\s*[-_=*~]{3,}\\s*$"
+        }
+    ],
+    "phrases": [
+        {
+            "id": "sent_from_device",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(Sent from|Get) (my|Outlook|BlueMail|Mail for|Yahoo Mail|Proton Mail|the) .{0,60}$"
+        },
+        {
+            "id": "sent_from_localised",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(Von meinem|Envoy. de mon|Enviado desde mi|Inviato da|Verzonden vanaf mijn|Skickat från min|Lähetetty|Saadetud minu|Отправлено с) .{0,60}$"
+        },
+        {
+            "id": "best_regards",
+            "strength": 0.35,
+            "flags": "i",
+            "pattern": "^\\s*(Best regards|Kind regards|Warm regards|Best wishes|Regards|Cheers|Thanks|Thank you|Sincerely|Best|Yours( sincerely| truly)?|Mit freundlichen Grüßen|Viele Grüße|Beste Grüße|Cordialement|Bien à vous|Saludos|Atentamente|Cordiali saluti|Groeten|Met vriendelijke groet|Med vänliga hälsningar|Vänliga hälsningar|Mvh|Ystävällisin terveisin|Terveisin|Parimat|Parimate soovidega|Heade soovidega|Lugupidamisega|Tervitades|Tervitused|Terv|Kõike head|Ilusat päeva|Head aega|Austusega|С уважением|Z poważaniem|Pozdrawiam)\\s*[,.!]?\\s*$",
+            "comment": "Closing greeting. Mined from blocks the reference labelled SIGNATURE that this baseline missed, which is why the Estonian forms are here: the working corpus is roughly ten percent Estonian and those accounted for the largest group of misses."
+        },
+        {
+            "id": "contact_line",
+            "strength": 0.3,
+            "flags": "i",
+            "pattern": "^\\s*(Tel|Phone|Mobile|Mob|Fax|Cell|M|T|E|W)\\s*[:.]?\\s*[+0-9(][-0-9()\\s.]{6,}$"
+        },
+        {
+            "id": "company_registration_line",
+            "comment": "Continental European corporate footers carry a registered office and company number. These lines are boilerplate, never authored prose.",
+            "strength": 0.6,
+            "flags": "i",
+            "pattern": "^\\s*(Geschäftsführer|Handelsregister|Registergericht|Sitz der Gesellschaft|HRB\\s*\\d|USt-IdNr|VAT\\s*(No|ID)|Reg\\.?\\s*(nr|no)\\.?\\s*\\d|Registrikood|Äriregistri)"
+        },
+        {
+            "id": "postal_address_line",
+            "comment": "A street or postal code line in a trailing block. Weak on its own, but it pairs with a name or a closing greeting to identify a corporate signature.",
+            "strength": 0.4,
+            "flags": "i",
+            "pattern": "^\\s*([A-ZÄÖÜÕŠŽ][\\w.-]*\\s+)?(Str\\.|Straße|Strasse|Street|Avenue|Ave\\.|Road|Rd\\.|tee|tänav|pst)\\s*\\.?\\s*\\d|^\\s*[A-Z]{0,2}-?\\d{4,6}\\s+[A-ZÄÖÜÕ]"
+        }
+    ]
+}

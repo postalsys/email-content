@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.build-test/
+*.tsbuildinfo
+
+# Local corpus artefacts. These are derived from private mail and must never be committed.
+data/
+annotations/*.jsonl
+!annotations/.gitkeep
+
+# Generated reports may contain aggregate statistics only, but keep them opt in.
+docs/corpus-report.md
+
+.DS_Store
+*.log
+
+# Secrets
+.env
+.env.*
+!.env.example

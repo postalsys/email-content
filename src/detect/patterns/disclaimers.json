@@ -1,0 +1,113 @@
+{
+    "description": "Machine appended boilerplate, per the DISCLAIMER convention in docs/annotation-guide.md: text attached by a system, gateway or template independently of what the sender wrote. Matching is on the block as a whole. Deliberately generic: patterns target the shapes that recur across senders, not any one vendor's template, because fitting a single sender's footer would not transfer.",
+    "phrases": [
+        {
+            "id": "confidentiality_en",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(this (e-?mail|message)[^.]{0,80}(is )?(strictly )?confidential|confidential and (may be )?(legally )?privileged|intended (solely |only )?for the (named |intended )?(addressee|recipient))"
+        },
+        {
+            "id": "unintended_recipient_en",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(if you (have received|are not) .{0,80}(in error|the intended recipient)|please (notify the sender|delete) .{0,60}(immediately|and delete))"
+        },
+        {
+            "id": "no_liability_en",
+            "strength": 0.7,
+            "flags": "i",
+            "pattern": "(accepts? no (liability|responsibility)|any views or opinions (presented|expressed) .{0,60}are (solely )?those of the (author|sender))"
+        },
+        {
+            "id": "virus_scan_en",
+            "strength": 0.7,
+            "flags": "i",
+            "pattern": "(this (e-?mail|message) has been (scanned|checked) for viruses|virus-free|free from (any )?virus)"
+        },
+        {
+            "id": "confidentiality_de",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(vertrauliche Informationen|Diese E-?Mail (ist|enthält) .{0,60}vertraulich|Sollten Sie nicht der richtige Adressat sein)"
+        },
+        {
+            "id": "confidentiality_fr",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(Ce message .{0,60}confidentiel|destin. (exclusivement|uniquement) aux personnes)"
+        },
+        {
+            "id": "confidentiality_es",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(Este mensaje .{0,60}confidencial|informaci.n confidencial|destinatario)"
+        },
+        {
+            "id": "gdpr_notice",
+            "strength": 0.7,
+            "flags": "i",
+            "pattern": "(privacy (notice|policy)|processes? your personal data|GDPR|isikuandmete töötlemise)"
+        },
+        {
+            "id": "company_registration",
+            "strength": 0.6,
+            "flags": "i",
+            "pattern": "(registered (in|office) .{0,60}(no|number)\\.?\\s*[0-9]|VAT (registration )?(no|number)|Handelsregister|Reg\\.?\\s*nr\\.?\\s*[0-9])"
+        },
+        {
+            "id": "unsubscribe_footer",
+            "strength": 0.8,
+            "flags": "i",
+            "pattern": "(unsubscribe|opt out of these emails|manage your (email )?preferences|loobu (uudiskirjast|teavitustest))"
+        },
+        {
+            "id": "confidentiality_et",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(Käesolev (e-?kiri|sõnum) .{0,60}(konfidentsiaal|asutusesisene)|kui te ei ole .{0,40}saaja)"
+        },
+        {
+            "id": "automated_do_not_reply",
+            "strength": 0.85,
+            "flags": "i",
+            "comment": "Standard notification preamble or footer.",
+            "pattern": "(this is an? (automated|automatic|system.generated) (e-?mail|message|notification)|please do not reply to this (e-?mail|message)|do not reply directly to this)"
+        },
+        {
+            "id": "receiving_because",
+            "strength": 0.85,
+            "flags": "i",
+            "comment": "The canonical notification footer: why you got this and how to stop it. Recurs across almost every service.",
+            "pattern": "(you (are |have )?receiv(ed|ing) (this|these) .{0,60}(because|since|as (a|an) )|you'?re receiving (this|these) .{0,60}(because|since))"
+        },
+        {
+            "id": "manage_notification_preferences",
+            "strength": 0.8,
+            "flags": "i",
+            "comment": "Opt out and preference management, distinct from a plain unsubscribe link.",
+            "pattern": "(to (stop|change|update|manage|adjust) (receiving |getting )?(these|this|your) .{0,50}(e-?mails?|notifications?|messages?|preferences|settings)|(change|manage|update) your (e-?mail |notification )?(preferences|settings|subscription))"
+        },
+        {
+            "id": "subscribe_invitation_footer",
+            "strength": 0.7,
+            "flags": "i",
+            "comment": "Standing promotional footer on a notification: an invitation to subscribe to something other than what the message is about.",
+            "pattern": "(want to (know|hear|stay|learn) .{0,80}\\?\\s*(would you|subscribe|sign up|join)|would you like to (stay|be) (up.to.date|informed|notified) .{0,60}\\?)"
+        },
+        {
+            "id": "powered_by_footer",
+            "strength": 0.7,
+            "flags": "i",
+            "comment": "Provider branding appended by the sending platform.",
+            "pattern": "(powered by [A-Z]|sent (via|with|using) [A-Z][\\w.]{2,}|delivered by [A-Z][\\w.]{2,})"
+        },
+        {
+            "id": "support_contact_footer",
+            "strength": 0.6,
+            "flags": "i",
+            "comment": "Standing support or help pointer in a service footer.",
+            "pattern": "(if you (have any )?(questions|need help|require assistance)[^.]{0,60}(contact|reach|e-?mail) (us|our|the) (support|team|help)|visit our (help|support) (cent(er|re)|site|page))"
+        }
+    ]
+}

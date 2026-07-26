@@ -1,0 +1,41 @@
+{
+    "description": "Field names of an embedded copy of a previous message's headers, as Outlook and several webmail clients emit above quoted history. A single line matching one of these is weak evidence on its own, because ordinary prose can start with 'From:'. Two or more of these in consecutive lines, including at least one of the date-like fields, is a strong anchor. The consecutive-line rule lives in the detector, not here.",
+    "fields": [
+        {
+            "id": "from",
+            "role": "originator",
+            "flags": "i",
+            "pattern": "^\\s*(From|De|Von|Van|Da|Fra|Från|Lähettäjä|Kellelt|Saatja|От|Od|Nadawca|Remetente)\\s*:\\s*\\S"
+        },
+        {
+            "id": "sent",
+            "role": "date",
+            "flags": "i",
+            "pattern": "^\\s*(Sent|Date|Datum|Envoy.|Enviado|Inviato|Verzonden|Skickat|Lähetetty|Saadetud|Kuupäev|Отправлено|Дата|Wysłano|Data)\\s*:\\s*\\S"
+        },
+        {
+            "id": "to",
+            "role": "recipient",
+            "flags": "i",
+            "pattern": "^\\s*(To|A|An|Aan|Para|À|Till|Vastaanottaja|Kellele|Saaja|Кому|Do|Adresat)\\s*:\\s*\\S"
+        },
+        {
+            "id": "cc",
+            "role": "recipient",
+            "flags": "i",
+            "pattern": "^\\s*(Cc|CC|Copie|Kopie|Koopia|Kopio|Копия|DW)\\s*:\\s*\\S"
+        },
+        {
+            "id": "subject",
+            "role": "subject",
+            "flags": "i",
+            "pattern": "^\\s*(Subject|Betreff|Objet|Asunto|Oggetto|Onderwerp|Ämne|Aihe|Teema|Teated|Тема|Temat|Assunto)\\s*:\\s*\\S"
+        },
+        {
+            "id": "reply_to",
+            "role": "originator",
+            "flags": "i",
+            "pattern": "^\\s*(Reply-To|Antwort an|Répondre à)\\s*:\\s*\\S"
+        }
+    ]
+}

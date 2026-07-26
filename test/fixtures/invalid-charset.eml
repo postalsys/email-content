@@ -1,0 +1,10 @@
+From: Sybil <sybil@example.com>
+To: Trent <trent@example.com>
+Subject: Unknown charset
+Date: Wed, 22 Jan 2025 10:00:00 +0000
+Message-ID: <badcharset-001@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="x-totally-made-up"
+Content-Transfer-Encoding: 8bit
+
+Plain ascii survives an unknown charset label.

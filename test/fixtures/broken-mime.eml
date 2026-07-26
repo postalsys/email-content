@@ -1,0 +1,17 @@
+From: Olivia <olivia@example.com>
+To: Peggy <peggy@example.com>
+Subject: Broken
+Date: Mon, 20 Jan 2025 10:00:00 +0000
+Message-ID: <broken-001@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="never-closed"
+
+--never-closed
+Content-Type: text/plain; charset=utf-8
+
+The boundary below is never closed and the HTML part is truncated.
+
+--never-closed
+Content-Type: text/html; charset=utf-8
+
+<div>The boundary below is never closed<div><p>and this is unclosed

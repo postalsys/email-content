@@ -1,0 +1,38 @@
+From: Alice Example <alice@example.com>
+To: Bob Example <bob@example.net>
+Subject: Re: Deploy window
+Date: Mon, 13 Jan 2025 10:14:02 +0200
+Message-ID: <CAF8xyz123@mail.gmail.com>
+In-Reply-To: <20250113071500.aaa@example.net>
+References: <20250113071500.aaa@example.net>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="000000000000abc123"
+
+--000000000000abc123
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+No, wait until Monday.
+
+Andris
+
+On Mon, Jan 13, 2025 at 9:15=E2=80=AFAM Bob Example <bob@example.net> wrote:
+
+> Should we deploy this today?
+>
+> Bob
+>
+
+--000000000000abc123
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr">No, wait until Monday.<div><br></div><div>Andris</div></div=
+><br><div class=3D"gmail_quote"><div dir=3D"ltr" class=3D"gmail_attr">On Mo=
+n, Jan 13, 2025 at 9:15=E2=80=AFAM Bob Example &lt;bob@example.net&gt; wrot=
+e:<br></div><blockquote class=3D"gmail_quote" style=3D"margin:0px 0px 0px 0=
+.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex"><div dir=3D"l=
+tr">Should we deploy this today?<div><br></div><div>Bob</div></div>
+</blockquote></div>
+
+--000000000000abc123--

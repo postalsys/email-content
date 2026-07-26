@@ -1,0 +1,157 @@
+{
+    "description": "Client specific HTML structures, expressed as CSS selectors. Prevalence figures are measured on human authored replies in the working corpus and drive the priority order. Each entry declares a role: 'quote' encloses history, 'separator' means everything after it in document order is history, 'signature' and 'disclaimer' mark trailing footers, and 'new' marks containers a client uses for freshly typed text.",
+    "selectors": [
+        {
+            "id": "gmail_quote",
+            "client": "gmail",
+            "role": "quote",
+            "strength": 0.95,
+            "selector": ".gmail_quote",
+            "prevalence": 0.51
+        },
+        {
+            "id": "gmail_quote_container",
+            "client": "gmail",
+            "role": "quote",
+            "strength": 0.95,
+            "selector": ".gmail_quote_container",
+            "prevalence": 0.2
+        },
+        {
+            "id": "gmail_attr",
+            "client": "gmail",
+            "role": "attribution",
+            "strength": 0.92,
+            "selector": ".gmail_attr",
+            "prevalence": 0.47
+        },
+        {
+            "id": "gmail_signature",
+            "client": "gmail",
+            "role": "signature",
+            "strength": 0.9,
+            "selector": ".gmail_signature",
+            "prevalence": 0.27
+        },
+        {
+            "id": "owa_reply_separator",
+            "client": "outlook-web",
+            "role": "separator",
+            "strength": 0.95,
+            "selector": "div#divRplyFwdMsg",
+            "prevalence": 0.26
+        },
+        {
+            "id": "owa_append_on_send",
+            "client": "outlook-web",
+            "role": "separator",
+            "strength": 0.85,
+            "selector": "div#appendonsend",
+            "prevalence": 0.1
+        },
+        {
+            "id": "owa_element_to_proof",
+            "client": "outlook-web",
+            "role": "new",
+            "strength": 0.7,
+            "selector": ".elementToProof",
+            "prevalence": 0.12
+        },
+        {
+            "id": "outlook_mso_normal",
+            "client": "outlook-desktop",
+            "role": "hint",
+            "strength": 0.5,
+            "selector": "p.MsoNormal",
+            "prevalence": 0.16
+        },
+        {
+            "id": "outlook_word_section",
+            "client": "outlook-desktop",
+            "role": "hint",
+            "strength": 0.5,
+            "selector": "div.WordSection1",
+            "prevalence": 0.13
+        },
+        {
+            "id": "apple_mail_cite",
+            "client": "apple-mail",
+            "role": "quote",
+            "strength": 0.9,
+            "selector": "blockquote[type=cite]",
+            "prevalence": 0.04
+        },
+        {
+            "id": "apple_interchange_newline",
+            "client": "apple-mail",
+            "role": "hint",
+            "strength": 0.6,
+            "selector": "br.Apple-interchange-newline",
+            "prevalence": 0.04
+        },
+        {
+            "id": "thunderbird_moz_cite",
+            "client": "thunderbird",
+            "role": "attribution",
+            "strength": 0.95,
+            "selector": ".moz-cite-prefix",
+            "prevalence": 0.008
+        },
+        {
+            "id": "thunderbird_signature",
+            "client": "thunderbird",
+            "role": "signature",
+            "strength": 0.9,
+            "selector": "div.moz-signature",
+            "prevalence": 0.005
+        },
+        {
+            "id": "proton_quote",
+            "client": "proton",
+            "role": "quote",
+            "strength": 0.95,
+            "selector": ".protonmail_quote",
+            "prevalence": 0.002
+        },
+        {
+            "id": "proton_signature",
+            "client": "proton",
+            "role": "signature",
+            "strength": 0.9,
+            "selector": "div.protonmail_signature_block",
+            "prevalence": 0.002
+        },
+        {
+            "id": "yahoo_quoted",
+            "client": "yahoo",
+            "role": "quote",
+            "strength": 0.95,
+            "selector": ".yahoo_quoted",
+            "prevalence": 0.002
+        },
+        {
+            "id": "zimbra_separator",
+            "client": "zimbra",
+            "role": "separator",
+            "strength": 0.9,
+            "selector": "hr#zwchr",
+            "prevalence": 0.001
+        },
+        {
+            "id": "roundcube_quote",
+            "client": "roundcube",
+            "role": "quote",
+            "strength": 0.85,
+            "selector": "blockquote.reply",
+            "prevalence": 0.001
+        },
+        {
+            "id": "generic_blockquote",
+            "client": "*",
+            "role": "quote",
+            "strength": 0.6,
+            "selector": "blockquote",
+            "prevalence": 0.44
+        }
+    ]
+}

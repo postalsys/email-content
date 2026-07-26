@@ -1,0 +1,17 @@
+From: Mallory <mallory@example.com>
+To: Niaj <niaj@example.com>
+Subject: Flowed test
+Date: Sun, 19 Jan 2025 10:00:00 +0000
+Message-ID: <flowed-001@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+
+This is a long paragraph that the sending client has wrapped 
+across several physical lines using format=flowed, so it should 
+be joined back into one logical line.
+
+This second paragraph stands alone.
+
+-- 
+Mallory

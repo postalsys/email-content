@@ -1,0 +1,40 @@
+{
+    "description": "Markers introducing intentionally forwarded content. Forwarded material is preserved as structured, collapsible content and is never dropped, so these patterns open a FORWARDED_CONTENT region rather than a hidden one.",
+    "patterns": [
+        {
+            "id": "begin_forwarded_message",
+            "lang": "*",
+            "strength": 0.97,
+            "flags": "i",
+            "pattern": "^\\s*Begin forwarded message\\s*:?\\s*$"
+        },
+        {
+            "id": "forwarded_message_dashes",
+            "lang": "*",
+            "strength": 0.97,
+            "flags": "i",
+            "pattern": "^\\s*-{2,}\\s*Forwarded message\\s*-{2,}\\s*$"
+        },
+        {
+            "id": "forwarded_message_localised",
+            "lang": "*",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*-{2,}\\s*(Weitergeleitete Nachricht|Message transf.r.|Mensaje reenviado|Messaggio inoltrato|Doorgestuurd bericht|Edastatud kiri|Edasisaadetud (sõnumi|kirja).{0,20}|Пересылаемое сообщение)\\s*-{2,}\\s*$"
+        },
+        {
+            "id": "original_message_forward",
+            "lang": "*",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*-{2,}\\s*Forwarded by\\b.{0,120}$"
+        },
+        {
+            "id": "fyi_forward_header_block",
+            "lang": "*",
+            "strength": 0.7,
+            "flags": "i",
+            "pattern": "^\\s*(From|Van|Von|De|Da|Fra|Kellelt|От)\\s*:\\s*.{1,300}$"
+        }
+    ]
+}

@@ -1,0 +1,139 @@
+{
+    "description": "Attribution lines that a mail client inserts above quoted reply history. Matching one of these is a structural anchor: it is the strongest single piece of evidence that everything following is embedded history rather than new content. Patterns are matched per line against the canonicalised plain text projection.",
+    "patterns": [
+        {
+            "id": "on_x_wrote_en",
+            "lang": "en",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*On\\s+.{3,200}?\\bwrote\\s*:\\s*$"
+        },
+        {
+            "id": "on_x_wrote_en_wrapped",
+            "lang": "en",
+            "comment": "Attribution line whose trailing 'wrote:' was wrapped onto the next line. Requires a date or clock time so that ordinary sentences beginning with 'On ' do not match, and is scored well below an anchor because it cannot be trusted alone. Measured firing on 10.4 percent of the corpus before the date requirement was added.",
+            "strength": 0.5,
+            "flags": "i",
+            "pattern": "^\\s*On\\s+.{3,200}?(\\b\\d{4}\\b|\\b\\d{1,2}:\\d{2}\\b).{0,80}[,:]?\\s*$"
+        },
+        {
+            "id": "x_wrote_trailing",
+            "lang": "en",
+            "strength": 0.8,
+            "flags": "i",
+            "pattern": "^\\s*.{3,200}?\\bwrote\\s*:\\s*$"
+        },
+        {
+            "id": "at_x_wrote",
+            "lang": "en",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*At\\s+\\d{1,2}:\\d{2}.{0,200}?\\bwrote\\s*:\\s*$"
+        },
+        {
+            "id": "le_x_a_ecrit_fr",
+            "lang": "fr",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*Le\\s+.{3,200}?a\\s+.crit\\s*:\\s*$"
+        },
+        {
+            "id": "am_x_schrieb_de",
+            "lang": "de",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*(Am|Von)\\s+.{3,200}?schrieb.{0,60}:\\s*$"
+        },
+        {
+            "id": "el_x_escribio_es",
+            "lang": "es",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*El\\s+.{3,200}?escribi.{0,3}\\s*:\\s*$"
+        },
+        {
+            "id": "il_x_ha_scritto_it",
+            "lang": "it",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*Il\\s+.{3,200}?ha\\s+scritto\\s*:\\s*$"
+        },
+        {
+            "id": "em_x_escreveu_pt",
+            "lang": "pt",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*Em\\s+.{3,200}?escreveu\\s*:\\s*$"
+        },
+        {
+            "id": "op_x_schreef_nl",
+            "lang": "nl",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*Op\\s+.{3,200}?schreef\\s*.{0,80}:\\s*$"
+        },
+        {
+            "id": "w_dniu_x_napisal_pl",
+            "lang": "pl",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*W\\s+dniu\\s+.{3,200}?napisa.{1,2}\\s*.{0,40}:\\s*$"
+        },
+        {
+            "id": "x_kirjutas_et",
+            "lang": "et",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*.{3,200}?\\bkirjutas\\s*:\\s*$"
+        },
+        {
+            "id": "x_kirjoitti_fi",
+            "lang": "fi",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*.{3,200}?\\bkirjoitti\\s*:\\s*$"
+        },
+        {
+            "id": "den_x_skrev_sv",
+            "lang": "sv",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*(Den|.{0,60})\\s*.{3,200}?\\bskrev\\s*.{0,80}:\\s*$"
+        },
+        {
+            "id": "x_pisal_ru",
+            "lang": "ru",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*.{3,200}?(писал|написал)\\s*.{0,40}:\\s*$"
+        },
+        {
+            "id": "date_addr_colon",
+            "lang": "*",
+            "strength": 0.85,
+            "flags": "i",
+            "pattern": "^\\s*\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}.{0,120}<[^>]+@[^>]+>.{0,40}:\\s*$"
+        },
+        {
+            "id": "original_message_separator",
+            "lang": "*",
+            "strength": 0.97,
+            "flags": "i",
+            "pattern": "^\\s*-{2,}\\s*(Original Message|Originalnachricht|Message d'origine|Mensaje original|Messaggio originale|Oorspronkelijk bericht|Algne teade|Исходное сообщение)\\s*-{2,}\\s*$"
+        },
+        {
+            "id": "reply_message_separator",
+            "lang": "*",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*-{2,}\\s*(Reply Message|Antwort|Svar)\\s*-{2,}\\s*$"
+        },
+        {
+            "id": "outlook_underscore_rule",
+            "lang": "*",
+            "strength": 0.6,
+            "flags": "",
+            "pattern": "^_{10,}\\s*$"
+        }
+    ]
+}
