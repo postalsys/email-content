@@ -19,7 +19,14 @@ import { type Block, type Evidence } from './segment/types';
 import { classifyBlocks } from './classify/rules';
 import { pickPrimary, reconcileSection, type PrimaryChoice, type RepresentationInfo } from './classify/reconcile';
 import { overallConfidence, validateConfidenceConfig, visibilityFor, type ConfidenceConfig } from './classify/confidence';
-import { buildHistoryDocument, buildHistoryDocumentFromContent, matchBlocks, matchedIndices, type HistoryDocument } from './match/history';
+import {
+    buildHistoryDocument,
+    buildHistoryDocumentFromContent,
+    matchBlocks,
+    matchedIndices,
+    strongMatchedIndices,
+    type HistoryDocument
+} from './match/history';
 import { normaliseForMatch } from './match/normalize';
 import { buildShingleIndex, containment, CONTAINMENT_THRESHOLD, isMatchable } from './match/shingle';
 import { ConfigurationError, EXTRACTOR_VERSION, mimePartOf, type ContentAnalysisResult, type Reason, type Segment, type Warning } from './types';
@@ -501,7 +508,12 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
         }
 
         const matches = history.length ? matchBlocks(documentBlocks, history) : [];
-        const decisions = classifyBlocks(documentBlocks, { config, historyMatchedIndices: matchedIndices(matches), senderTokens });
+        const decisions = classifyBlocks(documentBlocks, {
+            config,
+            historyMatchedIndices: matchedIndices(matches),
+            historyStrongIndices: strongMatchedIndices(matches),
+            senderTokens
+        });
 
         for (const section of segmented) {
             const slice = decisions.slice(section.start, section.end);
@@ -518,8 +530,14 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
                 continue;
             }
             const secondary = section.choice.secondary;
+            const secondaryMatches = secondary ? matchBlocks(secondary.blocks, history) : [];
             const secondaryDecisions = secondary
-                ? classifyBlocks(secondary.blocks, { config, historyMatchedIndices: matchedIndices(matchBlocks(secondary.blocks, history)), senderTokens })
+                ? classifyBlocks(secondary.blocks, {
+                      config,
+                      historyMatchedIndices: matchedIndices(secondaryMatches),
+                      historyStrongIndices: strongMatchedIndices(secondaryMatches),
+                      senderTokens
+                  })
                 : null;
             reconcileSection(section.choice.primary.representation, slice, secondaryDecisions);
         }

@@ -6,6 +6,11 @@ import { buildShingleIndex, containment, CONTAINMENT_THRESHOLD } from '../src/ma
 import { segmentTextBlocks } from '../src/segment/text-blocks';
 import { extract } from '../src/index';
 
+const PARENT_BODY = [
+    'Should we deploy the billing change this afternoon, or wait until the release window on Monday?',
+    'The finance team asked for it before the end of the quarter.'
+].join('\n');
+
 const PARENT = [
     'From: Bob <bob@example.net>',
     'To: Alice <alice@example.com>',
@@ -13,10 +18,24 @@ const PARENT = [
     'Message-ID: <parent@example.net>',
     'Content-Type: text/plain; charset=utf-8',
     '',
-    'Should we deploy the billing change this afternoon, or wait until the release window on Monday?',
-    'The finance team asked for it before the end of the quarter.',
+    PARENT_BODY,
     ''
 ].join('\n');
+
+/** Wrap a body as a reply to PARENT. */
+function rawMessage(body: string): string {
+    return [
+        'From: Alice <alice@example.com>',
+        'To: Bob <bob@example.net>',
+        'Subject: Re: Deploy window',
+        'Message-ID: <reply@example.com>',
+        'In-Reply-To: <parent@example.net>',
+        'Content-Type: text/plain; charset=utf-8',
+        '',
+        body,
+        ''
+    ].join('\n');
+}
 
 describe('normalisation for matching', () => {
     it('folds the transformations a quoted message goes through', () => {
@@ -147,5 +166,68 @@ describe('history matching', () => {
         const result = await extract(reply, { history: [PARENT] });
         assert.equal(result.hiddenSegments.length, 0);
         assert.match(result.segments.map(segment => segment.text).join(' '), /hold the billing change/);
+    });
+});
+
+/**
+ * History that carries no markup of its own.
+ *
+ * Outlook and several other clients paste the previous message as ordinary paragraphs: no quote
+ * prefix, no blockquote, no attribution. Every structural rule leaves it as new content, and it is
+ * the largest remaining error category. Only the thread can identify it.
+ */
+describe('unmarked history', () => {
+    /** The parent pasted back with no quote marker of any kind. */
+    const UNMARKED_REPLY = ['Monday works better for us.', '', PARENT_BODY].join('\n');
+
+    it('collapses a verbatim copy of the parent that carries no quote marker', async () => {
+        const result = await extract(rawMessage(UNMARKED_REPLY), { history: [PARENT] });
+        const all = [...result.segments, ...result.hiddenSegments];
+
+        const echoed = all.find(segment => segment.text.includes('Should we deploy the billing change'));
+        assert.ok(echoed, 'the pasted parent disappeared');
+        assert.equal(echoed.type, 'REPLY_HISTORY');
+        assert.ok(echoed.reasons.includes('matched_parent_message'));
+
+        // Collapsed, never hidden: the match proves the text existed before and says nothing about
+        // whether the reader needs it.
+        assert.equal(echoed.visibility, 'collapse');
+        assert.equal(result.hiddenSegments.length, 0);
+    });
+
+    it('keeps the sender own words visible beside it', async () => {
+        const result = await extract(rawMessage(UNMARKED_REPLY), { history: [PARENT] });
+        assert.match(result.segments.map(segment => segment.text).join(' '), /Monday works better for us/);
+    });
+
+    it('does nothing without the thread', async () => {
+        // The identical message with no history stays entirely new content, because nothing in it
+        // says otherwise. This is the whole point: only the earlier message can tell.
+        const result = await extract(rawMessage(UNMARKED_REPLY));
+        const echoed = [...result.segments, ...result.hiddenSegments].find(segment => segment.text.includes('Should we deploy the billing change'));
+        assert.ok(echoed);
+        assert.equal(echoed.type, 'NEW_CONTENT');
+    });
+
+    it('never collapses the whole message, however much it echoes', async () => {
+        // A reply whose every paragraph repeats the parent must still leave something visible, or
+        // the reader is looking at a folded message and nothing else.
+        const result = await extract(rawMessage(PARENT_BODY), { history: [PARENT] });
+        assert.ok(result.segments.length > 0);
+        assert.ok(result.segments.some(segment => segment.text.trim().length > 0));
+    });
+
+    it('does not promote a short line the sender happens to repeat', async () => {
+        const reply = [
+            'Should we deploy the billing change this afternoon?',
+            '',
+            'I think we should wait, personally, until the Monday release window opens.'
+        ].join('\n');
+        const result = await extract(rawMessage(reply), { history: [PARENT] });
+        // The echoed question is the sender asking it back, and it opens the message, so nothing the
+        // sender wrote sits above it. It stays visible.
+        const echoed = result.segments.find(segment => segment.text.includes('Should we deploy the billing change'));
+        assert.ok(echoed);
+        assert.equal(echoed.type, 'NEW_CONTENT');
     });
 });

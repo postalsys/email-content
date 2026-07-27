@@ -176,6 +176,19 @@ const result = await analyze(
 
 History is always optional. Extraction works without it and never depends on it.
 
+It earns its place twice over. A block whose text is found in an earlier message is history by
+provenance rather than by markup, which both raises confidence on regions the structure already
+recognised and catches the ones it cannot see at all: clients that paste the previous message as
+ordinary paragraphs, with no quote prefix, no blockquote and no attribution line. Nothing in such a
+message says it is quoting, so only the thread can tell. That case is collapsed rather than hidden,
+because a match proves the text existed before and proves nothing about whether the reader still
+needs it.
+
+If you are reading a mailbox you already have what this needs: resolve the parent by `In-Reply-To`
+or `References`, usually from Sent, and pass it. Callers that resolve threads themselves can build
+the documents once with `buildHistoryDocument()` and pass `historyDocuments` instead, which skips
+re-parsing the ancestor on every message.
+
 `analyze()` and `extract()` never throw for malformed **message input**. A body that cannot be
 segmented is returned as a single visible `UNKNOWN` segment plus a warning.
 
@@ -371,7 +384,7 @@ a single spam message of machine generated word salad is excluded. That is the p
 
 | property | measured |
 | --- | ---: |
-| block label agreement | 80.0% |
+| block label agreement | 80.9% |
 | new content characters retained | **100.0%** |
 | new content blocks retained | **100.0%** |
 | hidden content genuinely history | 99.4% |
@@ -382,7 +395,7 @@ a single spam message of machine generated word salad is excluded. That is the p
 Not one character the reference considers newly written is hidden, across 452 messages and 206,368
 characters of new content.
 
-Per label F1: REPLY_HISTORY 90.6, FORWARDED_CONTENT 79.8, NEW_CONTENT 70.1, SIGNATURE 48.8,
+Per label F1: REPLY_HISTORY 91.3, FORWARDED_CONTENT 79.8, NEW_CONTENT 71.8, SIGNATURE 48.8,
 INLINE_QUOTE 35.9, DISCLAIMER 30.1.
 
 Recall is the number to read here, not F1. Precision is measured against a reference that labels

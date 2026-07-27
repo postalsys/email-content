@@ -38,6 +38,13 @@ export interface ClassifyOptions {
      */
     historyMatchedIndices?: ReadonlySet<number>;
     /**
+     * Blocks whose match against an earlier message was strong enough to stand on its own.
+     *
+     * A subset of `historyMatchedIndices`. Used only for unmarked history, below, where there is no
+     * markup to corroborate and the match is the entire case.
+     */
+    historyStrongIndices?: ReadonlySet<number>;
+    /**
      * Display name and local part of the sender, lowercased. A trailing short block containing the
      * sender's own name is strong evidence of a signature: it is how nearly every signature begins,
      * and unlike a greeting phrase it is language independent.
@@ -51,6 +58,15 @@ export interface ClassifyOptions {
  * A closing greeting or a "sent from my phone" line opens a signature. A phone number or a street
  * address sits inside one.
  */
+/**
+ * Confidence for history identified only by matching an earlier message, with no markup to back it.
+ *
+ * Deliberately under the default hide threshold of 0.95, so this signal can collapse a region but
+ * can never hide one. Provenance says the text existed before; it says nothing about whether the
+ * reader needs it, and the cost of being wrong has to stay recoverable.
+ */
+const UNMARKED_HISTORY_CONFIDENCE = 0.9;
+
 const TOP_OF_SIGNATURE = new Set(['signature:best_regards', 'signature:sent_from_device', 'signature:sent_from_localised', 'signature:dash_dash_space']);
 
 /** The signature evidence id on a block, if any. */
@@ -675,6 +691,57 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
             decision.label = 'REPLY_HISTORY';
             decision.confidence = 0.96;
             decision.reasons = ['matched_parent_message', 'quote_depth_positive'];
+        }
+    }
+
+    // Unmarked history that only the thread can identify.
+    //
+    // Outlook and several other clients paste the previous message as ordinary paragraphs: no quote
+    // prefix, no blockquote, and sometimes no attribution line either. Nothing in the markup says
+    // it is history, so every rule above leaves it as NEW_CONTENT, and it is the largest remaining
+    // category. Measured over the 305 reference messages that have a resolvable parent, 78 percent
+    // of the characters we show as new content but the reference calls history reproduce the parent
+    // message.
+    //
+    // The rule the block above states, that NEW_CONTENT is never promoted because a sender
+    // restating something is still writing it now, holds for a sentence quoted back at you. It does
+    // not hold for a verbatim copy of the whole previous message. What separates them is not the
+    // match, it is position: unmarked history follows what the sender wrote.
+    //
+    // Collapsed, never hidden. The match is strong evidence of provenance and no evidence at all of
+    // intent, so the reader keeps it one interaction away. Measured on the reference set this
+    // reclassifies 37,094 characters correctly against 3,138 incorrectly, and the incorrect ones
+    // stay visible-on-request rather than disappearing.
+    const strong = options.historyStrongIndices;
+    if (strong?.size) {
+        const promotable = new Set<number>();
+        for (const index of strong) {
+            const decision = decisions[index];
+            const block = blocks[index];
+            if (decision && block && decision.label === 'NEW_CONTENT' && hasWords(block) && !isQuote(block) && !isAnchorBlock(block)) {
+                promotable.add(index);
+            }
+        }
+        for (const index of promotable) {
+            // Something the sender demonstrably wrote has to survive above this block. Without that
+            // guard a reply whose every paragraph echoes the parent collapses in full, and the
+            // whole-message safeguard has to undo it.
+            let authoredAbove = false;
+            for (let i = 0; i < index; i++) {
+                const decision = decisions[i];
+                const block = blocks[i];
+                if (decision && block && decision.label === 'NEW_CONTENT' && hasWords(block) && !promotable.has(i)) {
+                    authoredAbove = true;
+                    break;
+                }
+            }
+            if (!authoredAbove) {
+                continue;
+            }
+            const decision = decisions[index] as BlockDecision;
+            decision.label = 'REPLY_HISTORY';
+            decision.confidence = UNMARKED_HISTORY_CONFIDENCE;
+            decision.reasons = ['matched_parent_message', 'shingle_overlap_high'];
         }
     }
 
