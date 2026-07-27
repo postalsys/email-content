@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.1](https://github.com/postalsys/email-content/compare/v0.1.0...v0.1.1) (2026-07-27)
+
+
+### Features
+
+* identify unmarked history by matching the thread ([de7eb00](https://github.com/postalsys/email-content/commit/de7eb00a24d7b67fa476f01da4b3987307465e64))
+
+
+### Bug Fixes
+
+* make the shipped example runnable ([3791b45](https://github.com/postalsys/email-content/commit/3791b456f1d9790e7502a088f01b0fa99bda3883))
+
 ## [0.1.0](https://github.com/postalsys/email-content/compare/v0.0.5...v0.1.0) (2026-07-27)
 
 
