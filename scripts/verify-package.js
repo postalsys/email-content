@@ -107,6 +107,17 @@ check('the README CommonJS example runs against the installed package', () => {
     assert.match(result.out, /^ok /);
 });
 
+check('the shipped example runs', () => {
+    // Run from the repository, where the example's own devDependencies live, rather than from the
+    // consumer project. `examples/` is not in the tarball, so this checks that the example we hand
+    // people still works, not that a consumer can run it. It broke unnoticed because nothing ran it:
+    // `mailparser` is what the example parses with and was never a dependency of anything.
+    const fixture = path.join(root, 'test', 'fixtures', 'gmail-top-post.eml');
+    const out = run(process.execPath, [path.join(root, 'examples', 'mailparser.js'), fixture], root);
+    assert.match(out, /primary representation:/);
+    assert.match(out, /NEW_CONTENT/);
+});
+
 check('the documented extractorVersion matches the package version', () => {
     const result = inConsumer(`
         const { EXTRACTOR_VERSION } = require('${pkg.name}');
