@@ -114,6 +114,37 @@ describe('html segmentation', () => {
         assert.equal(attr?.kind, 'reply_header');
     });
 
+    it('requires an attribution to be a line of its own', () => {
+        // A known and deliberate limitation, recorded here because it looks like a bug and was
+        // measured as one.
+        //
+        // When a client splits an attribution across inline elements, "On", the date and the sender
+        // as separate spans, the projected text carries newlines and no anchor is found. Joining the
+        // lines before matching looks like the obvious fix and is not: every pattern would then also
+        // match ordinary prose that happens to start with "On" and end in "wrote:", for example
+        // "On Monday I spoke to the vendor<br>and here is what they wrote:". Measured over the 452
+        // message reference set, joining changed three messages, improved one, and turned two into a
+        // single undifferentiated block because the anchor landed above the authored text and the
+        // never-empty guard had to rescue the whole message.
+        //
+        // Fixing this properly needs corroboration that the block introduces a quote, not a looser
+        // line test. Until then a split attribution is left unanchored, which leaves quoted history
+        // visible: the safe direction.
+        const split = '<div>new</div><div>On<br>Mon, 27 Jul at 3:51 AM<br>, Alice &lt;alice@example.com&gt; wrote:</div><blockquote>old</blockquote>';
+        assert.equal(segmentHtmlBlocks(split, '2').blocks.find(block => block.content.startsWith('On'))?.kind, 'paragraph');
+
+        // The one line form is detected, and must stay detected.
+        const oneLine = '<div>new</div><div>On Mon, 27 Jul at 3:51 AM, Alice &lt;alice@example.com&gt; wrote:</div><blockquote>old</blockquote>';
+        const attr = segmentHtmlBlocks(oneLine, '2').blocks.find(block => block.content.startsWith('On'));
+        assert.equal(attr?.kind, 'reply_header');
+        assert.ok(attr?.evidence.some(item => item.kind === 'reply-anchor'));
+    });
+
+    it('never treats a paragraph that merely ends in "wrote:" as an attribution', () => {
+        const html = '<div>Please read the note below before Monday.<br>On Mon, 27 Jul, Alice &lt;alice@example.com&gt; wrote:</div>';
+        assert.ok(segmentHtmlBlocks(html, '2').blocks.every(block => block.kind !== 'reply_header'));
+    });
+
     it('converts br to newlines and decodes entities', () => {
         const { blocks } = segmentHtmlBlocks('<div>a &amp; b<br>second</div>', '2');
         assert.equal(blocks[0]?.content, 'a & b\nsecond');
