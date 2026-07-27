@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.0](https://github.com/postalsys/email-content/compare/v0.0.5...v0.1.0) (2026-07-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* `SourceRef` is now a discriminated union on `kind`. A segment traced to a MIME part carries `kind: 'mime-part'` with the existing fields; one produced when MIME parsing failed carries `kind: 'raw-message'` with only a byte range. Reading `source.mimePart` unconditionally no longer type checks. Use the exported `mimePartOf()` and `blockIndexOf()` helpers, which return null for the raw-message case. Deliberate pre-1.0: the previous shape reported a MIME part that never held the text.
+
+### Bug Fixes
+
+* fail loudly when no detector pattern can be loaded ([15f3c96](https://github.com/postalsys/email-content/commit/15f3c961b2c01e28781b097604359c6db8a91b22))
+* stop losing content and bound hostile-input processing ([4f0aadf](https://github.com/postalsys/email-content/commit/4f0aadf45f441722570813812a5c3ec9d8a8684b))
+
 ## [0.0.5](https://github.com/postalsys/email-content/compare/v0.0.4...v0.0.5) (2026-07-26)
 
 

@@ -1,6 +1,6 @@
 {
     "name": "@postalsys/email-content",
-    "version": "0.0.5",
+    "version": "0.1.0",
     "description": "Extract conversationally relevant content from arbitrary email messages",
     "keywords": [
         "email",
@@ -12,7 +12,7 @@
         "parser"
     ],
     "license": "MIT",
-    "author": "Postal Systems O\u00dc",
+    "author": "Postal Systems OÜ",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/postalsys/email-content.git"
