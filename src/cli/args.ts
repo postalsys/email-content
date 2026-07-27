@@ -54,13 +54,61 @@ export function flagOptionalString(args: ParsedArgs, name: string): string | und
     return typeof value === 'string' ? value : undefined;
 }
 
+/**
+ * An invalid command line option.
+ *
+ * Thrown rather than clamped. `--concurrency -1` and `--timeout -1` used to reach worker pool
+ * creation and SQL, where they mean something arbitrary; a message naming the option is both
+ * cheaper to debug and impossible to misread as a result.
+ */
+export class CliOptionError extends Error {
+    readonly option: string;
+
+    constructor(option: string, expected: string, received: string) {
+        super(`--${option} expects ${expected}, got "${received}"`);
+        this.name = 'CliOptionError';
+        this.option = option;
+    }
+}
+
 export function flagNumber(args: ParsedArgs, name: string, fallback: number): number {
     const value = args.flags.get(name);
     if (typeof value !== 'string') {
         return fallback;
     }
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
+    if (!Number.isFinite(parsed)) {
+        throw new CliOptionError(name, 'a finite number', value);
+    }
+    return parsed;
+}
+
+export function flagNumberInRange(args: ParsedArgs, name: string, fallback: number, min: number, max: number): number {
+    const value = flagNumber(args, name, fallback);
+    if (value < min || value > max) {
+        throw new CliOptionError(name, `a number between ${min} and ${max}`, String(value));
+    }
+    return value;
+}
+
+function flagInteger(args: ParsedArgs, name: string, fallback: number, min: number, expected: string): number {
+    const raw = args.flags.get(name);
+    if (typeof raw !== 'string') {
+        return fallback;
+    }
+    const parsed = Number(raw);
+    if (!Number.isSafeInteger(parsed) || parsed < min) {
+        throw new CliOptionError(name, expected, raw);
+    }
+    return parsed;
+}
+
+export function flagPositiveInt(args: ParsedArgs, name: string, fallback: number): number {
+    return flagInteger(args, name, fallback, 1, 'a positive integer');
+}
+
+export function flagNonNegativeInt(args: ParsedArgs, name: string, fallback: number): number {
+    return flagInteger(args, name, fallback, 0, 'a non negative integer');
 }
 
 export function flagBool(args: ParsedArgs, name: string, fallback: boolean): boolean {

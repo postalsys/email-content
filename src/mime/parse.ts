@@ -21,7 +21,7 @@ import libmime from 'libmime';
 import { type Warning } from '../types';
 import { decodeCharset } from './charset';
 import { extractMessageHeaders, parseHeaderValueSafe, toHeaderEntries } from './headers';
-import { DEFAULT_PARSE_OPTIONS, type DecodedText, type MimePart, type ParseOptions, type ParsedMessage } from './model';
+import { type DecodedText, type MimePart, type ParseOptions, type ParsedMessage, validateParseOptions } from './model';
 
 /** Content types whose bodies are decoded and retained. Everything else is measured and dropped. */
 const TEXT_TYPES = new Set(['text/plain', 'text/html']);
@@ -181,7 +181,7 @@ export function structureSignature(parts: readonly MimePart[], partsById: Readon
  * that is converted into a parsed message carrying a `mime_parse_error` warning.
  */
 export async function parseMessage(raw: Buffer, options: ParseOptions = {}): Promise<ParsedMessage> {
-    const opts = { ...DEFAULT_PARSE_OPTIONS, ...options };
+    const opts = validateParseOptions(options);
     const warnings: Warning[] = [];
     const pendingParts: PendingPart[] = [];
     const partsById = new Map<string, PendingPart>();
@@ -332,12 +332,30 @@ export async function parseMessage(raw: Buffer, options: ParseOptions = {}): Pro
         }
     });
 
+    // Aggregate budget across every text part. Per part caps do not bound total work: a thousand
+    // individually legal parts add up to the same memory as one enormous one.
+    let decodedBudget = opts.maxTotalDecodedTextBytes;
+    let aggregateReported = false;
+
     for (const pending of pendingParts) {
         if (pending.nonContiguous) {
             warnings.push({ code: 'non_contiguous_body', mimePart: pending.part.partId });
         }
+        if (pending.collecting && pending.bodyBytes > 0 && decodedBudget <= 0) {
+            if (!aggregateReported) {
+                aggregateReported = true;
+                warnings.push({
+                    code: 'input_limit_exceeded',
+                    mimePart: pending.part.partId,
+                    detail: `maxTotalDecodedTextBytes (${opts.maxTotalDecodedTextBytes})`
+                });
+            }
+            pending.bodyChunks.length = 0;
+            continue;
+        }
         if (pending.collecting && pending.bodyBytes > 0) {
-            pending.part.decoded = await decodeTextPart(pending, opts.maxTextPartBytes, warnings);
+            pending.part.decoded = await decodeTextPart(pending, Math.min(opts.maxTextPartBytes, decodedBudget), warnings);
+            decodedBudget -= pending.part.decoded.text.length;
         } else if (pending.collecting) {
             pending.part.decoded = {
                 text: '',

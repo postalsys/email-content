@@ -10,7 +10,7 @@ import path from 'node:path';
 import { scanCorpus, type ScanProgress } from '../corpus/scanner';
 import { computeStats, renderReport } from '../corpus/stats';
 import { CorpusStore } from '../corpus/store';
-import { flagBool, flagNumber, flagOptionalString, flagString, type ParsedArgs } from './args';
+import { flagBool, flagNonNegativeInt, flagOptionalString, flagPositiveInt, flagString, type ParsedArgs } from './args';
 
 const DEFAULT_DB = 'data/corpus.sqlite';
 
@@ -49,6 +49,19 @@ async function scan(args: ParsedArgs): Promise<number> {
     }
 
     const dbPath = flagString(args, 'db', DEFAULT_DB);
+
+    // Every option is read before anything is printed or opened, so an invalid one fails without a
+    // half started run and without a database file to clean up afterwards.
+    const options = {
+        sample: flagNonNegativeInt(args, 'sample', 0),
+        seed: flagString(args, 'seed', 'default'),
+        concurrency: flagNonNegativeInt(args, 'concurrency', 0) || undefined,
+        resume: flagBool(args, 'resume', true),
+        maxFileBytes: flagPositiveInt(args, 'max-file-mb', 32) * 1024 * 1024,
+        timeoutMs: flagPositiveInt(args, 'timeout', 30000),
+        batchSize: flagPositiveInt(args, 'batch', 500)
+    };
+
     const isTty = process.stderr.isTTY;
     let lastLength = 0;
 
@@ -58,13 +71,7 @@ async function scan(args: ParsedArgs): Promise<number> {
     const summary = await scanCorpus({
         root,
         dbPath,
-        sample: flagNumber(args, 'sample', 0),
-        seed: flagString(args, 'seed', 'default'),
-        concurrency: flagNumber(args, 'concurrency', 0) || undefined,
-        resume: flagBool(args, 'resume', true),
-        maxFileBytes: flagNumber(args, 'max-file-mb', 32) * 1024 * 1024,
-        timeoutMs: flagNumber(args, 'timeout', 30000),
-        batchSize: flagNumber(args, 'batch', 500),
+        ...options,
         onProgress: progress => {
             const line = renderProgress(progress);
             if (isTty) {
@@ -99,7 +106,7 @@ function stats(args: ParsedArgs): number {
             process.stdout.write(`${JSON.stringify(computed, null, 2)}\n`);
             return 0;
         }
-        const root = store.queryOne<{ root: string }>('SELECT root FROM runs ORDER BY id DESC LIMIT 1')?.root ?? 'unknown';
+        const root = store.latestCompletedRun()?.root ?? 'unknown';
         const report = renderReport(computed, root);
         const out = flagOptionalString(args, 'out');
         if (out) {

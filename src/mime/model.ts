@@ -6,7 +6,7 @@
  * needs to be able to point at the exact bytes a segment came from.
  */
 
-import { type Warning } from '../types';
+import { ConfigurationError, type Warning } from '../types';
 
 export interface ByteRange {
     start: number;
@@ -106,19 +106,75 @@ export interface ParsedMessage {
 }
 
 export interface ParseOptions {
-    /** Maximum decoded bytes retained per text part. Default 1 MiB. */
+    /** Maximum decoded bytes retained per text part. Default 1 MiB. Recommended ceiling 32 MiB. */
     maxTextPartBytes?: number;
-    /** Maximum number of parts before the walk stops recording. Default 500. */
+    /** Maximum number of parts before the walk stops recording. Default 500. Recommended ceiling 10,000. */
     maxParts?: number;
-    /** Maximum raw header block size per part, passed to mailsplit. Default 1 MiB. */
+    /** Maximum raw header block size per part, passed to mailsplit. Default 1 MiB. Recommended ceiling 16 MiB. */
     maxHeadSize?: number;
     /** Treat message/rfc822 as an opaque leaf instead of descending into it. Default false. */
     ignoreEmbedded?: boolean;
+    /**
+     * Maximum raw message size accepted. Default 64 MiB.
+     *
+     * Per part limits do not bound total work: an attacker can submit many individually legal
+     * parts. This is a circuit breaker over the whole input, not a sandbox, and the raw message has
+     * already been allocated by the time it is checked. Reject oversized payloads at the transport
+     * where you can.
+     */
+    maxMessageBytes?: number;
+    /**
+     * Maximum decoded text retained across every text part combined. Default 16 MiB.
+     *
+     * Once reached, later parts are not decoded and the result carries `input_limit_exceeded`.
+     */
+    maxTotalDecodedTextBytes?: number;
 }
 
 export const DEFAULT_PARSE_OPTIONS: Required<ParseOptions> = {
     maxTextPartBytes: 1024 * 1024,
     maxParts: 500,
     maxHeadSize: 1024 * 1024,
-    ignoreEmbedded: false
+    ignoreEmbedded: false,
+    maxMessageBytes: 64 * 1024 * 1024,
+    maxTotalDecodedTextBytes: 16 * 1024 * 1024
 };
+
+function requirePositiveInteger(value: unknown, option: string): number {
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+        throw new ConfigurationError(option, 'a positive safe integer');
+    }
+    return value;
+}
+
+/**
+ * Validate caller supplied parse options and fill in the defaults.
+ *
+ * Rejects what is meaningless, and does not reject what is merely large. `NaN`, infinities,
+ * negatives, zero and fractions are always programmer errors and always throw. Upper bounds are
+ * documented as recommendations rather than enforced: a hard failure on a value the caller chose
+ * deliberately is more likely to take down a consuming service than to protect it, and the host is
+ * better placed than this library to know what its own memory budget is.
+ */
+export function validateParseOptions(input?: ParseOptions): Required<ParseOptions> {
+    if (input === undefined || input === null) {
+        return { ...DEFAULT_PARSE_OPTIONS };
+    }
+    if (typeof input !== 'object') {
+        throw new ConfigurationError('parse', 'an object');
+    }
+
+    const options: Required<ParseOptions> = { ...DEFAULT_PARSE_OPTIONS };
+    for (const key of ['maxTextPartBytes', 'maxParts', 'maxHeadSize', 'maxMessageBytes', 'maxTotalDecodedTextBytes'] as const) {
+        if (input[key] !== undefined) {
+            options[key] = requirePositiveInteger(input[key], `parse.${key}`);
+        }
+    }
+    if (input.ignoreEmbedded !== undefined) {
+        if (typeof input.ignoreEmbedded !== 'boolean') {
+            throw new ConfigurationError('parse.ignoreEmbedded', 'a boolean');
+        }
+        options.ignoreEmbedded = input.ignoreEmbedded;
+    }
+    return options;
+}

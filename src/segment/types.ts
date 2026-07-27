@@ -81,7 +81,21 @@ export interface BlockFeatures {
 }
 
 export interface Block {
+    /**
+     * Document-global decision index: position in the sequence the classifier sees.
+     *
+     * A message can hold several independent body sections, and they are classified as one linear
+     * sequence so that positional rules such as "the last block" keep meaning what they say. The
+     * classifier indexes its own arrays with this, so it always equals the array position.
+     */
     index: number;
+    /**
+     * Section-local source index: position within this block's own representation.
+     *
+     * Present when the block was renumbered into a document sequence. This is what a segment
+     * reports, so traceability still points at a block of a specific MIME part.
+     */
+    sourceIndex?: number;
     kind: BlockKind;
     representation: Representation;
     /** MIME part this block came from, for example "1.2". */

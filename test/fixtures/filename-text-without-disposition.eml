@@ -1,0 +1,19 @@
+From: Alice <alice@example.com>
+To: Bob <bob@example.net>
+Subject: Filename without disposition
+Message-ID: <filename-no-disposition@example.com>
+Date: Mon, 13 Jan 2025 09:15:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="OUTER"
+
+--OUTER
+Content-Type: text/plain; charset=utf-8
+
+AUTHORED_SENTINEL see the log below.
+
+--OUTER
+Content-Type: text/plain; charset=utf-8; name="server.log"
+
+ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started. ATTACHED_SENTINEL 2025-01-13T09:15:00Z worker started.
+
+--OUTER--

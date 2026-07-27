@@ -50,6 +50,24 @@ function contentOf(lines: readonly TextLine[]): string {
         .join('\n');
 }
 
+/**
+ * Deepest quote level in a slice.
+ *
+ * A loop rather than `Math.max(...slice.map(...))`. Spreading an array into a call passes one
+ * argument per element, and V8 throws `RangeError: Maximum call stack size exceeded` somewhere
+ * above 125k arguments. A message of 130,000 short lines is large but perfectly legal, and it made
+ * the whole analysis fall back to a single unclassified block.
+ */
+function maxDepth(lines: readonly TextLine[]): number {
+    let depth = 0;
+    for (const line of lines) {
+        if (line.depth > depth) {
+            depth = line.depth;
+        }
+    }
+    return depth;
+}
+
 function classifyKind(lines: readonly TextLine[], forced: BlockKind | undefined): BlockKind {
     if (forced) {
         return forced;
@@ -197,7 +215,7 @@ export function segmentTextBlocks(raw: string, mimePart: string): { canonical: C
                 total: starts.length,
                 start: first.start,
                 totalChars: canonical.text.length,
-                quoteDepth: Math.max(...slice.map(line => line.depth))
+                quoteDepth: maxDepth(slice)
             }),
             evidence: boundary?.evidence ? [boundary.evidence] : []
         });

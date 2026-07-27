@@ -18,7 +18,7 @@ import { parseMessage } from '../mime/parse';
 import { segmentHtmlBlocks } from '../segment/html-blocks';
 import { segmentTextBlocks } from '../segment/text-blocks';
 import { type Block } from '../segment/types';
-import { flagNumber, flagString, type ParsedArgs } from './args';
+import { flagNonNegativeInt, flagPositiveInt, flagString, type ParsedArgs } from './args';
 
 interface Row {
     path: string;
@@ -75,18 +75,21 @@ export async function disagreementsCommand(args: ParsedArgs): Promise<number> {
         return 2;
     }
 
-    const limit = flagNumber(args, 'limit', 20);
-    const context = flagNumber(args, 'context', 2);
+    const limit = flagPositiveInt(args, 'limit', 20);
+    const context = flagNonNegativeInt(args, 'context', 2);
 
     const store = new CorpusStore(dbPath);
-    const root = store.queryOne<{ root: string }>('SELECT root FROM runs ORDER BY id DESC LIMIT 1')?.root;
+    // Only a run that finished cleanly. An interrupted or failed run holds partial output that
+    // looks exactly like a small corpus, and reading it as a baseline approves a release against
+    // whatever fraction of the messages happened to finish.
+    const root = store.latestCompletedRun()?.root;
     if (!root) {
         process.stderr.write('no completed scan run found\n');
         store.close();
         return 2;
     }
 
-    const runFilter = flagNumber(args, 'run', 0);
+    const runFilter = flagNonNegativeInt(args, 'run', 0);
     const rows = store.query<Row>(
         `SELECT path, block_index, representation, label, confidence, baseline_label, baseline_conf, baseline_reasons, char_count
          FROM annotations

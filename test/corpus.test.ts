@@ -6,6 +6,7 @@ import path from 'node:path';
 import { analyzeMessage } from '../src/corpus/analyze';
 import { selectSample } from '../src/corpus/scanner';
 import { CorpusStore } from '../src/corpus/store';
+import { WorkerPool, WorkerRestartBudgetError } from '../src/util/worker-pool';
 import { parseMessage } from '../src/mime/parse';
 import { deterministicUnit, NEAR_DUPLICATE_THRESHOLD, simhash64, simhashDistance } from '../src/util/hash';
 import { readFixture } from './helpers';
@@ -231,5 +232,142 @@ describe('CorpusStore', { skip: HAS_SQLITE ? false : 'node:sqlite requires Node 
         assert.equal(reopened.salt, salt);
         assert.equal(reopened.queryOne<{ count: number }>('SELECT COUNT(*) AS count FROM messages')?.count, 1);
         reopened.close();
+    });
+});
+
+/**
+ * Operability of the evaluation infrastructure.
+ *
+ * The scanner is not the extraction runtime, but a corpus run that failed halfway and looks
+ * successful can approve a bad release. Every case here is about telling a partial result from a
+ * complete one.
+ */
+describe('corpus run state', { skip: HAS_SQLITE ? false : 'node:sqlite requires Node 22.5 or later' }, () => {
+    function tempStore(): { store: CorpusStore; dir: string } {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'email-content-runs-'));
+        return { store: new CorpusStore(path.join(dir, 'corpus.sqlite')), dir };
+    }
+
+    it('never offers an unfinished run as a baseline', () => {
+        const { store, dir } = tempStore();
+        try {
+            // A run whose process died leaves its row saying `running` forever.
+            store.startRun({ root: '/corpus/crashed' });
+            assert.equal(store.latestCompletedRun(), null, 'a running run was offered as a baseline');
+
+            const aborted = store.startRun({ root: '/corpus/aborted' });
+            store.finishRun(aborted, 'aborted', { seen: 10, processed: 4, failed: 0, skipped: 0 });
+            assert.equal(store.latestCompletedRun(), null, 'an aborted run was offered as a baseline');
+
+            const failed = store.startRun({ root: '/corpus/failed' });
+            store.finishRun(failed, 'failed', { seen: 10, processed: 4, failed: 6, skipped: 0 });
+            assert.equal(store.latestCompletedRun(), null, 'a failed run was offered as a baseline');
+
+            const good = store.startRun({ root: '/corpus/good' });
+            store.finishRun(good, 'completed', { seen: 10, processed: 10, failed: 0, skipped: 0 });
+            assert.equal(store.latestCompletedRun()?.root, '/corpus/good');
+
+            // A later failed run must not shadow the last good one.
+            const later = store.startRun({ root: '/corpus/later-failure' });
+            store.finishRun(later, 'failed', { seen: 3, processed: 1, failed: 2, skipped: 0 });
+            assert.equal(store.latestCompletedRun()?.root, '/corpus/good');
+        } finally {
+            store.close();
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('writes a batch all or nothing', () => {
+        const { store, dir } = tempStore();
+        try {
+            const runId = store.startRun({ root: '/corpus' });
+            const good = {
+                file: { path: 'ok.eml', size: 10, mtime: 1, sha256: null, status: 'ok' as const, errorCode: null, errorDetail: null, durationMs: 1 },
+                message: null
+            };
+            // A row the driver will reject, after a valid one. A partial write would leave the first
+            // file recorded as processed, and a resumed run would skip it forever.
+            const bad = { file: { ...good.file, path: 'bad.eml', size: {} as unknown as number }, message: null };
+
+            assert.throws(() => store.writeBatch([good, bad], runId));
+            assert.equal(store.queryOne<{ count: number }>('SELECT COUNT(*) AS count FROM files')?.count, 0, 'a failed batch left rows behind');
+        } finally {
+            store.close();
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('opens with a busy timeout so a concurrent reader cannot fail a write', () => {
+        const { store, dir } = tempStore();
+        try {
+            const value = store.queryOne<{ timeout: number }>('PRAGMA busy_timeout');
+            assert.ok((value?.timeout ?? 0) >= 1000, `busy_timeout is ${JSON.stringify(value)}`);
+        } finally {
+            store.close();
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('does not double count a resumed run', () => {
+        const { store, dir } = tempStore();
+        try {
+            const runId = store.startRun({ root: '/corpus' });
+            const row = {
+                file: { path: 'a.eml', size: 10, mtime: 5, sha256: null, status: 'ok' as const, errorCode: null, errorDetail: null, durationMs: 1 },
+                message: null
+            };
+            store.writeBatch([row], runId);
+
+            // Same size and mtime: already done, and a resumed run skips it.
+            assert.equal(store.isProcessed('a.eml', 10, 5), true);
+            // Changed on disk: processed again, so the record cannot go stale.
+            assert.equal(store.isProcessed('a.eml', 11, 5), false);
+            assert.equal(store.isProcessed('a.eml', 10, 6), false);
+
+            store.writeBatch([row], runId);
+            assert.equal(store.queryOne<{ count: number }>('SELECT COUNT(*) AS count FROM files')?.count, 1, 'a resumed write duplicated a file');
+        } finally {
+            store.close();
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe('worker pool restart budget', () => {
+    it('gives up rather than respawning a crashing worker forever', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'email-content-pool-'));
+        const workerPath = path.join(dir, 'always-crashes.js');
+        // A worker that dies on startup. Without a budget the pool replaces it forever, producing
+        // no results, no error and no end.
+        fs.writeFileSync(workerPath, 'process.exit(1);\n');
+        const pool = new WorkerPool<number, number>({ workerPath, size: 2, taskTimeoutMs: 2000, maxRestarts: 5 });
+        try {
+            const errors: Error[] = [];
+            for (let i = 0; i < 40; i++) {
+                try {
+                    await pool.submit(i);
+                    assert.fail('a crashing worker returned a result');
+                } catch (err) {
+                    errors.push(err as Error);
+                }
+            }
+
+            // The first crashes fail their own task; once the budget is spent the pool refuses
+            // outright rather than replacing workers forever.
+            assert.ok(
+                errors.some(err => err instanceof WorkerRestartBudgetError),
+                `the budget never tripped: ${[...new Set(errors.map(err => err.name))].join(', ')}`
+            );
+            assert.equal(errors[errors.length - 1] instanceof WorkerRestartBudgetError, true, 'the pool kept trying after giving up');
+            // Every task fails fast rather than waiting out its timeout.
+            assert.equal(
+                errors.some(err => err.name === 'WorkerTimeoutError'),
+                false,
+                'a task waited for its timeout instead of failing when its worker died'
+            );
+        } finally {
+            await pool.close();
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
     });
 });

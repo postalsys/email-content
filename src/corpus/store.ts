@@ -59,6 +59,22 @@ function loadDatabaseSync(): typeof DatabaseSyncType {
     }
 }
 
+/** How long SQLite waits for a writer lock before reporting SQLITE_BUSY. */
+const BUSY_TIMEOUT_MS = 10000;
+
+/** Attempts at a batch write before a lock is treated as a real failure rather than contention. */
+const WRITE_ATTEMPTS = 3;
+
+/**
+ * Lifecycle of a scan run.
+ *
+ * `running` also covers a process that died without ever updating its row, which is why release
+ * gates must select on `completed` rather than on the newest row. An interrupted run's partial
+ * output is not a baseline, and reading it as one silently approves a release against a fraction of
+ * the corpus.
+ */
+export type RunStatus = 'running' | 'completed' | 'failed' | 'aborted';
+
 export class CorpusStore {
     private readonly db: DatabaseSyncType;
     private readonly insertFileStmt;
@@ -77,6 +93,11 @@ export class CorpusStore {
         this.db.exec('PRAGMA journal_mode = WAL');
         this.db.exec('PRAGMA synchronous = NORMAL');
         this.db.exec('PRAGMA foreign_keys = ON');
+        // WAL allows concurrent readers, but a writer still takes an exclusive lock. Without a busy
+        // timeout, a `corpus stats` run that overlaps a scan fails immediately with SQLITE_BUSY and
+        // the scan loses the batch it was writing. Ten seconds is far longer than any transaction
+        // here, which is bounded by the batch size.
+        this.db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
         this.migrate();
 
         this.salt = this.readOrCreateSalt();
@@ -170,14 +191,21 @@ export class CorpusStore {
         return Number(result.lastInsertRowid);
     }
 
-    finishRun(
-        runId: number,
-        status: 'completed' | 'interrupted' | 'failed',
-        counts: { seen: number; processed: number; failed: number; skipped: number }
-    ): void {
+    finishRun(runId: number, status: RunStatus, counts: { seen: number; processed: number; failed: number; skipped: number }): void {
         this.db
             .prepare('UPDATE runs SET finished_at = ?, status = ?, files_seen = ?, files_processed = ?, files_failed = ?, files_skipped = ? WHERE id = ?')
             .run(Date.now(), status, counts.seen, counts.processed, counts.failed, counts.skipped, runId);
+    }
+
+    /**
+     * The most recent run that finished cleanly.
+     *
+     * Every consumer that reads corpus results goes through this rather than taking the newest row.
+     * A run that crashed, was interrupted, or is still going has partial output, and treating it as
+     * a baseline approves a release against whatever fraction of the corpus happened to finish.
+     */
+    latestCompletedRun(): { id: number; root: string } | null {
+        return this.queryOne<{ id: number; root: string }>("SELECT id, root FROM runs WHERE status = 'completed' ORDER BY id DESC LIMIT 1");
     }
 
     /**
@@ -193,12 +221,36 @@ export class CorpusStore {
         return row.size === size && row.mtime === mtime && row.processing_version === PROCESSING_VERSION;
     }
 
-    /** Write a batch inside a single transaction. */
+    /**
+     * Write a batch inside a single transaction, retrying briefly on lock contention.
+     *
+     * All or nothing on purpose. A half written batch would leave files recorded as processed whose
+     * message rows never landed, and a resumed run would skip them, so the corpus would be quietly
+     * short of exactly the messages that were in flight when the write failed.
+     */
     writeBatch(rows: readonly ScanRow[], runId: number): void {
         if (!rows.length) {
             return;
         }
-        this.db.exec('BEGIN');
+        let attempt = 0;
+        for (;;) {
+            try {
+                this.writeBatchOnce(rows, runId);
+                return;
+            } catch (err) {
+                attempt++;
+                const message = err instanceof Error ? err.message : String(err);
+                // Bounded retry for the one error that is expected and transient. Anything else, and
+                // a persistent lock, is a real failure and must reach the caller.
+                if (attempt >= WRITE_ATTEMPTS || !/busy|locked/i.test(message)) {
+                    throw err;
+                }
+            }
+        }
+    }
+
+    private writeBatchOnce(rows: readonly ScanRow[], runId: number): void {
+        this.db.exec('BEGIN IMMEDIATE');
         try {
             const now = Date.now();
             for (const row of rows) {

@@ -11,14 +11,45 @@
  * the bodies themselves, so nothing is lost by not having the envelope.
  */
 
+import { stripTagsToText } from './canonical/html';
+import { loadPatterns } from './detect/patterns';
 import { segmentHtmlBlocks } from './segment/html-blocks';
 import { segmentTextBlocks } from './segment/text-blocks';
-import { type Block } from './segment/types';
+import { type Block, type Evidence } from './segment/types';
 import { classifyBlocks } from './classify/rules';
-import { pickPrimary, reconcile, type RepresentationResult } from './classify/reconcile';
-import { DEFAULT_CONFIDENCE, overallConfidence, visibilityFor, type ConfidenceConfig } from './classify/confidence';
+import { pickPrimary, reconcileSection, type PrimaryChoice, type RepresentationInfo } from './classify/reconcile';
+import { overallConfidence, validateConfidenceConfig, visibilityFor, type ConfidenceConfig } from './classify/confidence';
 import { buildHistoryDocument, buildHistoryDocumentFromContent, matchBlocks, matchedIndices, type HistoryDocument } from './match/history';
-import { EXTRACTOR_VERSION, type Reason, type Segment, type Warning } from './types';
+import { normaliseForMatch } from './match/normalize';
+import { buildShingleIndex, containment, CONTAINMENT_THRESHOLD, isMatchable } from './match/shingle';
+import { ConfigurationError, EXTRACTOR_VERSION, mimePartOf, type ContentAnalysisResult, type Reason, type Segment, type Warning } from './types';
+
+/**
+ * One structurally independent piece of a message body.
+ *
+ * A `multipart/mixed` message can carry several. The commonest shape in the working corpus,
+ * `multipart/mixed(alternative(P,H), P)` at 3.1 percent of 320,377 messages, is an authored body
+ * followed by a separately encoded gateway footer. They are not alternative renderings of each
+ * other, and choosing between them deletes one.
+ *
+ * `text` and `html` within one section *are* alternative renderings, and at most one of them
+ * reaches the output.
+ */
+export interface BodySection {
+    /** Plain text of this section, already transfer and charset decoded. */
+    text?: string | null;
+    /** HTML of this section, already transfer and charset decoded. */
+    html?: string | null;
+    /** MIME part ids, when the caller knows them, purely for traceability in the output. */
+    textPartId?: string;
+    htmlPartId?: string;
+    /**
+     * Where the section sits. Derived internally by `extract()`; optional for external callers, who
+     * may supply at most one `primary`. Evidence only: an appended section is classified normally,
+     * because gateways append substantive text as often as they append disclaimers.
+     */
+    role?: 'primary' | 'appended';
+}
 
 /** A message body, in whichever representations are available. */
 export interface MessageContent {
@@ -26,6 +57,19 @@ export interface MessageContent {
     text?: string | null;
     /** HTML body, already transfer and charset decoded. */
     html?: string | null;
+    /**
+     * Ordered body sections, when the message has more than one.
+     *
+     * Array position is the canonical order; there is deliberately no second ordering field to
+     * disagree with it. Mutually exclusive with the single `text`/`html`/`textPartId`/`htmlPartId`
+     * fields above, which are sugar for exactly one section. Supplying both is rejected rather than
+     * guessed at.
+     *
+     * This is the shared path, not an `extract()` private. Building multi section composition
+     * inside `extract()` would give the raw message entry point a capability the content first one
+     * cannot express, and the two entry points must not be able to disagree about the same message.
+     */
+    sections?: readonly BodySection[];
     /** Subject line. Optional, and never allowed to change a label on its own. */
     subject?: string | null;
     /** Sender, as a display name and/or address. Used only as signature evidence. */
@@ -39,7 +83,14 @@ export interface MessageContent {
 }
 
 export interface AnalyzeOptions {
-    confidence?: ConfidenceConfig;
+    confidence?: Partial<ConfidenceConfig>;
+    /**
+     * Maximum characters of body content analysed, across every section. Default 8,000,000.
+     *
+     * A circuit breaker for the content first entry point, where there is no raw message to bound.
+     * Sections past the limit are not analysed and the result carries `input_limit_exceeded`.
+     */
+    maxContentChars?: number;
     /**
      * Earlier messages in the thread, nearest first. Each may be raw RFC 5322 or already split
      * content. History is optional and only ever adds evidence.
@@ -50,19 +101,13 @@ export interface AnalyzeOptions {
     explain?: boolean;
 }
 
-export interface AnalyzeResult {
-    /** Segments the client should render, in document order. */
-    segments: Segment[];
-    /** Segments the client may hide or collapse. Retained in full so nothing is ever lost. */
-    hiddenSegments: Segment[];
-    overallConfidence: number;
-    warnings: Warning[];
-    originalAvailable: true;
-    primaryRepresentation: 'text' | 'html' | 'none';
-    extractorVersion: string;
-    historyUsed: boolean;
-    /** True when the input looked like a reply, from threading headers or a subject prefix. */
-    isReply: boolean;
+/**
+ * Result of analysing one message body.
+ *
+ * Extends the shared contract rather than restating it, so the two entry points cannot drift apart
+ * again. `extract()` used to build its own object and silently drop `isReply`.
+ */
+export interface AnalyzeResult extends ContentAnalysisResult {
     diagnostics?: {
         primaryPart: string | null;
         blocks: {
@@ -114,21 +159,35 @@ export function senderTokensFrom(from: string | null | undefined): string[] {
     return [...tokens];
 }
 
-function buildRepresentation(
-    blocks: Block[],
-    representation: 'text' | 'html',
-    config: ConfidenceConfig,
-    history: readonly HistoryDocument[],
-    senderTokens: readonly string[]
-): RepresentationResult {
-    const matches = history.length ? matchBlocks(blocks, history) : [];
+/** Confidence assigned to anything the pipeline could not classify. Never 1, never 0. */
+const DEGRADED_CONFIDENCE = 0.5;
+
+function representationInfo(blocks: Block[], representation: 'text' | 'html', degraded: boolean): RepresentationInfo {
     return {
         representation,
-        decisions: classifyBlocks(blocks, { config, historyMatchedIndices: matchedIndices(matches), senderTokens }),
+        blocks,
         contentChars: contentChars(blocks),
-        hasAnchor: hasAnchor(blocks),
-        matches
+        // A representation that failed to segment has no evidence, so it has no anchors either.
+        hasAnchor: degraded ? false : hasAnchor(blocks),
+        degraded
     };
+}
+
+/** Evidence that a section arrived as a later MIME sibling rather than as the message body. */
+const APPENDED_SECTION_EVIDENCE: Evidence = { id: 'mime:appended_section', kind: 'hint', strength: 0.5 };
+
+/**
+ * One body section, segmented, with its representation already chosen.
+ *
+ * Choosing before classification is what lets every section be classified as one sequence. See
+ * `docs/adr-001-document-global-classification.md`.
+ */
+interface SegmentedSection {
+    choice: PrimaryChoice;
+    role: 'primary' | 'appended';
+    /** Position of this section's blocks in the document sequence. */
+    start: number;
+    end: number;
 }
 
 /** Merge adjacent decisions carrying the same label, so the output is regions rather than lines. */
@@ -140,7 +199,7 @@ function toSegments(decisions: ReturnType<typeof classifyBlocks>, config: Confid
         const previous = segments[segments.length - 1];
         const visibility = visibilityFor(decision.label, decision.confidence, config);
 
-        if (previous && previous.type === decision.label && previous.visibility === visibility && previous.source.mimePart === block.mimePart) {
+        if (previous && previous.type === decision.label && previous.visibility === visibility && mimePartOf(previous.source) === block.mimePart) {
             previous.text = previous.text ? `${previous.text}\n${block.content}` : block.content;
             if (block.html) {
                 previous.html = (previous.html ?? '') + block.html;
@@ -167,9 +226,12 @@ function toSegments(decisions: ReturnType<typeof classifyBlocks>, config: Confid
             visibility,
             reasons: [...decision.reasons],
             source: {
+                kind: 'mime-part',
                 mimePart: block.mimePart,
                 representation: block.representation,
-                blockIndex: block.index,
+                // The section-local index, not the document-global one the classifier ran on. A
+                // reader following this back wants the block's position inside its own MIME part.
+                blockIndex: block.sourceIndex ?? block.index,
                 start: block.start,
                 end: block.end,
                 ...(block.domPath ? { domPath: block.domPath } : {})
@@ -178,6 +240,139 @@ function toSegments(decisions: ReturnType<typeof classifyBlocks>, config: Confid
     }
 
     return segments.filter(segment => segment.text.trim().length > 0);
+}
+
+function trimmedOrEmpty(value: string | null | undefined): string {
+    return typeof value === 'string' && value.trim() ? value : '';
+}
+
+/**
+ * Are two adjacent sections the same content in two representations?
+ *
+ * Some clients emit `multipart/mixed(H, P)` where they meant `multipart/alternative`: 158 messages
+ * in the working corpus, most of them in that order. Structure alone cannot tell that apart from a
+ * genuine plain text sibling next to a genuine HTML one, and guessing wrong in the merging direction
+ * deletes a section. So the question is settled by content: shingle containment either way, at the
+ * same threshold history matching uses. No match means both are kept, and the cost of that is a
+ * body that appears twice rather than one that disappears.
+ */
+function isSameContentAlternative(a: BodySection, b: BodySection): boolean {
+    const aText = trimmedOrEmpty(a.text);
+    const aHtml = trimmedOrEmpty(a.html);
+    const bText = trimmedOrEmpty(b.text);
+    const bHtml = trimmedOrEmpty(b.html);
+
+    let plain: string;
+    let markup: string;
+    if (aText && !aHtml && bHtml && !bText) {
+        plain = aText;
+        markup = bHtml;
+    } else if (aHtml && !aText && bText && !bHtml) {
+        plain = bText;
+        markup = aHtml;
+    } else {
+        return false;
+    }
+
+    const left = buildShingleIndex(normaliseForMatch(plain));
+    const right = buildShingleIndex(normaliseForMatch(stripTagsToText(markup)));
+    if (!isMatchable(left) || !isMatchable(right)) {
+        // Too short to judge. Keeping both is the safe answer.
+        return false;
+    }
+    return containment(left, right).containment >= CONTAINMENT_THRESHOLD || containment(right, left).containment >= CONTAINMENT_THRESHOLD;
+}
+
+function mergeEquivalentSections(sections: readonly BodySection[]): BodySection[] {
+    const merged: BodySection[] = [];
+    for (const section of sections) {
+        const previous = merged[merged.length - 1];
+        if (previous && isSameContentAlternative(previous, section)) {
+            merged[merged.length - 1] = {
+                text: previous.text ?? section.text ?? null,
+                html: previous.html ?? section.html ?? null,
+                ...((previous.textPartId ?? section.textPartId) ? { textPartId: previous.textPartId ?? section.textPartId } : {}),
+                ...((previous.htmlPartId ?? section.htmlPartId) ? { htmlPartId: previous.htmlPartId ?? section.htmlPartId } : {}),
+                ...(previous.role ? { role: previous.role } : {})
+            };
+            continue;
+        }
+        merged.push(section);
+    }
+    return merged;
+}
+
+/**
+ * Resolve the caller's input into an ordered list of body sections.
+ *
+ * The single `text`/`html` pair is sugar for exactly one section, normalised here so that both
+ * entry points and both call shapes run the identical composition below.
+ */
+function normaliseSections(content: MessageContent): BodySection[] {
+    const hasLegacyContent = trimmedOrEmpty(content.text) !== '' || trimmedOrEmpty(content.html) !== '';
+
+    if (content.sections) {
+        if (hasLegacyContent) {
+            throw new ConfigurationError('sections', 'the only body input; supplying text or html alongside it is ambiguous', 'conflicting_body_input');
+        }
+        if (content.sections.filter(section => section.role === 'primary').length > 1) {
+            throw new ConfigurationError('sections', 'a list with at most one section whose role is "primary"', 'invalid_section_role');
+        }
+        return mergeEquivalentSections(content.sections.filter(section => trimmedOrEmpty(section.text) || trimmedOrEmpty(section.html)));
+    }
+
+    if (!hasLegacyContent) {
+        return [];
+    }
+    return [
+        {
+            text: content.text ?? null,
+            html: content.html ?? null,
+            ...(content.textPartId ? { textPartId: content.textPartId } : {}),
+            ...(content.htmlPartId ? { htmlPartId: content.htmlPartId } : {}),
+            role: 'primary'
+        }
+    ];
+}
+
+/** Characters of body content analysed by default, across every section. */
+const DEFAULT_MAX_CONTENT_CHARS = 8_000_000;
+
+function validateMaxContentChars(value: number | undefined): number {
+    if (value === undefined) {
+        return DEFAULT_MAX_CONTENT_CHARS;
+    }
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+        throw new ConfigurationError('maxContentChars', 'a positive safe integer');
+    }
+    return value;
+}
+
+/**
+ * Drop sections once the aggregate content budget is spent.
+ *
+ * Whole sections rather than a character cut: a half section would be classified against structure
+ * that is not there, and a confident wrong answer about truncated input is worse than an honest
+ * refusal. Everything the budget did allow through is analysed and returned in full, and the
+ * warning names the option so the caller can raise it.
+ */
+function limitSections(sections: readonly BodySection[], maxContentChars: number, warnings: Warning[]): BodySection[] {
+    const kept: BodySection[] = [];
+    let used = 0;
+    for (const section of sections) {
+        const size = (section.text?.length ?? 0) + (section.html?.length ?? 0);
+        if (kept.length && used + size > maxContentChars) {
+            warnings.push({ code: 'input_limit_exceeded', detail: `maxContentChars (${maxContentChars})` });
+            break;
+        }
+        used += size;
+        kept.push(section);
+        if (used > maxContentChars) {
+            warnings.push({ code: 'input_limit_exceeded', detail: `maxContentChars (${maxContentChars})` });
+            break;
+        }
+    }
+    return kept;
 }
 
 /** Turn whatever the caller supplied as history into searchable documents. */
@@ -208,11 +403,21 @@ export async function resolveHistory(options: AnalyzeOptions): Promise<HistoryDo
  * segment, because showing too much is always preferable to showing nothing.
  */
 export async function analyze(content: MessageContent, options: AnalyzeOptions = {}): Promise<AnalyzeResult> {
-    const config = options.confidence ?? DEFAULT_CONFIDENCE;
+    // Classifier assets are loaded here, outside the fail-soft block below.
+    //
+    // Detectors call `loadPatterns()` lazily, which put its "no patterns could be loaded" assertion
+    // inside the per message catch: a broken installation came back as one more degraded result
+    // among many, and every message looked like new content because nothing could be detected as
+    // history. A missing package asset is an installation defect and has to fail like one.
+    loadPatterns();
+
+    // Validated before any work. An invalid threshold is a programmer error that would otherwise
+    // repeat silently on every message, so it throws here rather than degrading a result.
+    const config = validateConfidenceConfig(options.confidence);
+    const maxContentChars = validateMaxContentChars(options.maxContentChars);
     const warnings: Warning[] = [];
 
-    const text = typeof content.text === 'string' ? content.text : '';
-    const html = typeof content.html === 'string' ? content.html : '';
+    const sections = limitSections(normaliseSections(content), maxContentChars, warnings);
     const isReply = Boolean(content.inReplyTo) || (content.references?.length ?? 0) > 0 || REPLY_SUBJECT.test(content.subject ?? '');
 
     const base = {
@@ -221,16 +426,17 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
         isReply
     };
 
-    if (!text.trim() && !html.trim()) {
-        return {
-            ...base,
-            segments: [],
-            hiddenSegments: [],
-            overallConfidence: 1,
-            warnings: [{ code: 'no_body_parts' }],
-            primaryRepresentation: 'none',
-            historyUsed: false
-        };
+    const empty = {
+        ...base,
+        segments: [],
+        hiddenSegments: [],
+        overallConfidence: 1,
+        primaryRepresentation: 'none' as const,
+        historyUsed: false
+    };
+
+    if (!sections.length) {
+        return { ...empty, warnings: [{ code: 'no_body_parts' }] };
     }
 
     const senderTokens = senderTokensFrom(content.from);
@@ -242,51 +448,96 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
     }
 
     try {
-        let textResult: RepresentationResult | null = null;
-        let htmlResult: RepresentationResult | null = null;
-        let primaryBlocks: Block[] = [];
+        // Segment every section and choose its representation, before anything is classified.
+        const segmented: SegmentedSection[] = [];
+        const documentBlocks: Block[] = [];
 
-        if (text.trim()) {
-            const segmented = segmentTextBlocks(text, content.textPartId ?? 'TEXT');
-            textResult = buildRepresentation(segmented.blocks, 'text', config, history, senderTokens);
-            primaryBlocks = segmented.blocks;
-        }
+        for (const section of sections) {
+            const sectionText = typeof section.text === 'string' ? section.text : '';
+            const sectionHtml = typeof section.html === 'string' ? section.html : '';
 
-        if (html.trim()) {
-            const segmented = segmentHtmlBlocks(html, content.htmlPartId ?? 'HTML');
-            if (segmented.degraded) {
-                warnings.push({ code: 'html_parse_error' });
+            let textInfo: RepresentationInfo | null = null;
+            let htmlInfo: RepresentationInfo | null = null;
+
+            if (sectionText.trim()) {
+                const blocks = segmentTextBlocks(sectionText, section.textPartId ?? 'TEXT').blocks;
+                textInfo = representationInfo(blocks, 'text', false);
             }
-            htmlResult = buildRepresentation(segmented.blocks, 'html', config, history, senderTokens);
-            if (!textResult) {
-                primaryBlocks = segmented.blocks;
+            if (sectionHtml.trim()) {
+                const htmlPartId = section.htmlPartId ?? 'HTML';
+                const result = segmentHtmlBlocks(sectionHtml, htmlPartId);
+                if (result.degraded) {
+                    warnings.push({ code: 'html_parse_error', mimePart: htmlPartId });
+                }
+                htmlInfo = representationInfo(result.blocks, 'html', result.degraded);
             }
+            if (!textInfo && !htmlInfo) {
+                continue;
+            }
+
+            const choice = pickPrimary(textInfo, htmlInfo);
+            const start = documentBlocks.length;
+            for (const block of choice.primary.blocks) {
+                // Section-local index preserved for traceability; the array position becomes the
+                // decision index, which is what the classifier indexes its own arrays with.
+                block.sourceIndex = block.index;
+                block.index = documentBlocks.length;
+                if (section.role === 'appended') {
+                    block.evidence.push(APPENDED_SECTION_EVIDENCE);
+                }
+                documentBlocks.push(block);
+            }
+            segmented.push({ choice, role: section.role ?? 'primary', start, end: documentBlocks.length });
         }
 
-        if (!textResult && !htmlResult) {
-            return {
-                ...base,
-                segments: [],
-                hiddenSegments: [],
-                overallConfidence: 1,
-                warnings: [...warnings, { code: 'no_body_parts' }],
-                primaryRepresentation: 'none',
-                historyUsed: false
-            };
+        if (!documentBlocks.length) {
+            return { ...empty, warnings: [...warnings, { code: 'no_body_parts' }] };
         }
 
-        const outcome = pickPrimary(textResult, htmlResult);
-        if (outcome.primary === htmlResult && htmlResult) {
-            primaryBlocks = htmlResult.decisions.map(decision => decision.block);
-        } else if (textResult) {
-            primaryBlocks = textResult.decisions.map(decision => decision.block);
+        // Positional features are document-global, so that an appended gateway footer cannot stop
+        // the primary section's signature from being the last thing the sender wrote.
+        for (const block of documentBlocks) {
+            block.features.indexFromEnd = documentBlocks.length - 1 - block.index;
         }
 
-        const decisions = reconcile(outcome);
+        const matches = history.length ? matchBlocks(documentBlocks, history) : [];
+        const decisions = classifyBlocks(documentBlocks, { config, historyMatchedIndices: matchedIndices(matches), senderTokens });
+
+        for (const section of segmented) {
+            const slice = decisions.slice(section.start, section.end);
+            if (section.choice.primary.degraded) {
+                // A degraded parse has lost exactly the structure the visibility rules depend on,
+                // so its decisions are replaced rather than trusted. Letting reply-header, quote
+                // region and footer reasoning act on its flattened projection would let it infer
+                // hidden regions from evidence it no longer has.
+                for (const decision of slice) {
+                    decision.label = 'UNKNOWN';
+                    decision.confidence = DEGRADED_CONFIDENCE;
+                    decision.reasons = ['degraded_to_unknown'];
+                }
+                continue;
+            }
+            const secondary = section.choice.secondary;
+            const secondaryDecisions = secondary
+                ? classifyBlocks(secondary.blocks, { config, historyMatchedIndices: matchedIndices(matchBlocks(secondary.blocks, history)), senderTokens })
+                : null;
+            reconcileSection(section.choice.primary.representation, slice, secondaryDecisions);
+        }
+
         const segments = toSegments(decisions, config);
+        const primary = (segmented[0] as SegmentedSection).choice.primary;
+
+        if (!segments.length) {
+            // A body part existed and yielded nothing a reader would have seen: scripts, styles,
+            // comments, a tracking pixel, or markup that could not be parsed. An empty result with
+            // no explanation is indistinguishable from content loss, so name the case. Additive,
+            // and never a substitute for returning content that does exist.
+            warnings.push({ code: 'no_visible_body_text', mimePart: decisions[0]?.block.mimePart ?? primary.representation.toUpperCase() });
+        }
 
         const visible = segments.filter(segment => segment.visibility !== 'hide');
         const hidden = segments.filter(segment => segment.visibility === 'hide');
+        const anyDegraded = segmented.some(section => section.choice.primary.degraded);
 
         // Invariant: a message with body text always yields something visible.
         const bodyHasText = decisions.some(decision => decision.block.content.trim().length > 0);
@@ -301,11 +552,11 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
                 ...base,
                 segments,
                 hiddenSegments: [],
-                overallConfidence: 0.5,
+                overallConfidence: DEGRADED_CONFIDENCE,
                 warnings,
-                primaryRepresentation: outcome.primary.representation,
+                primaryRepresentation: primary.representation,
                 historyUsed: history.length > 0,
-                ...(options.explain ? { diagnostics: buildDiagnostics(primaryBlocks, decisions) } : {})
+                ...(options.explain ? { diagnostics: buildDiagnostics(documentBlocks, decisions) } : {})
             };
         }
 
@@ -313,14 +564,27 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
             ...base,
             segments: visible,
             hiddenSegments: hidden,
-            overallConfidence: overallConfidence(segments),
+            // A degraded section never reports full confidence, including when its projection was
+            // empty and there is nothing to report confidence about. Claiming 1 for a body the
+            // pipeline could not read would be the most misleading number in the result.
+            overallConfidence: anyDegraded ? Math.min(DEGRADED_CONFIDENCE, overallConfidence(segments)) : overallConfidence(segments),
             warnings,
-            primaryRepresentation: outcome.primary.representation,
+            primaryRepresentation: primary.representation,
             historyUsed: history.length > 0,
-            ...(options.explain ? { diagnostics: buildDiagnostics(primaryBlocks, decisions) } : {})
+            ...(options.explain ? { diagnostics: buildDiagnostics(documentBlocks, decisions) } : {})
         };
     } catch (err) {
-        const fallback = text || html;
+        // Whatever went wrong, the caller still gets their content back, whole and visible.
+        //
+        // The source reference names the representation and part the surviving text actually came
+        // from. It used to be hardcoded to `TEXT`/`text` even when the content was HTML, which is a
+        // traceability bug of the same family as losing the content outright: a reviewer following
+        // it lands on a part that never held this text.
+        const first = sections[0];
+        const text = typeof first?.text === 'string' ? first.text : '';
+        const html = typeof first?.html === 'string' ? first.html : '';
+        const fromText = Boolean(text.trim());
+        const fallback = fromText ? text : html;
         return {
             ...base,
             segments: fallback.trim()
@@ -328,15 +592,22 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
                       {
                           type: 'UNKNOWN',
                           text: fallback,
-                          confidence: 0.5,
+                          confidence: DEGRADED_CONFIDENCE,
                           visibility: 'show',
                           reasons: ['degraded_to_unknown'],
-                          source: { mimePart: 'TEXT', representation: 'text', blockIndex: 0, start: 0, end: fallback.length }
+                          source: {
+                              kind: 'mime-part',
+                              mimePart: (fromText ? first?.textPartId : first?.htmlPartId) ?? (fromText ? 'TEXT' : 'HTML'),
+                              representation: fromText ? 'text' : 'html',
+                              blockIndex: 0,
+                              start: 0,
+                              end: fallback.length
+                          }
                       }
                   ]
                 : [],
             hiddenSegments: [],
-            overallConfidence: 0.5,
+            overallConfidence: DEGRADED_CONFIDENCE,
             warnings: [...warnings, { code: 'extraction_degraded', detail: err instanceof Error ? err.message.slice(0, 200) : 'unknown' }],
             primaryRepresentation: 'none',
             historyUsed: history.length > 0

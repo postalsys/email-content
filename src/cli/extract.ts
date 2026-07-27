@@ -9,8 +9,8 @@
 import fs from 'node:fs';
 import { extract } from '../index';
 import { type HistoryDocument } from '../match/history';
-import { type Segment } from '../types';
-import { flagBool, flagNumber, flagOptionalString, type ParsedArgs } from './args';
+import { mimePartOf, type Segment } from '../types';
+import { flagBool, flagOptionalString, flagPositiveInt, type ParsedArgs } from './args';
 
 const LABEL_WIDTH = 18;
 
@@ -20,7 +20,8 @@ function truncate(text: string, limit: number): string {
 }
 
 function renderSegment(segment: Segment, index: number, full: boolean): string {
-    const head = `${String(index).padStart(2)}. ${segment.type.padEnd(LABEL_WIDTH)} ${segment.confidence.toFixed(2)}  ${segment.visibility.padEnd(8)} part ${segment.source.mimePart} [${segment.source.start}..${segment.source.end}]`;
+    const origin = mimePartOf(segment.source) ?? 'raw message';
+    const head = `${String(index).padStart(2)}. ${segment.type.padEnd(LABEL_WIDTH)} ${segment.confidence.toFixed(2)}  ${segment.visibility.padEnd(8)} part ${origin} [${segment.source.start}..${segment.source.end}]`;
     const reasons = `    reasons: ${segment.reasons.join(', ') || 'none'}`;
     const body = full
         ? segment.text
@@ -57,7 +58,10 @@ export async function extractCommand(args: ParsedArgs): Promise<number> {
             const { CorpusStore } = await import('../corpus/store');
             const { corpusThreadResolver } = await import('../corpus/thread-index');
             const store = new CorpusStore(historySource);
-            const root = store.queryOne<{ root: string }>('SELECT root FROM runs ORDER BY id DESC LIMIT 1')?.root;
+            // Only a run that finished cleanly. An interrupted or failed run holds partial output that
+            // looks exactly like a small corpus, and reading it as a baseline approves a release against
+            // whatever fraction of the messages happened to finish.
+            const root = store.latestCompletedRun()?.root;
             if (root) {
                 historyDocuments = await corpusThreadResolver(store, root).resolve(message.headers);
             }
@@ -72,7 +76,7 @@ export async function extractCommand(args: ParsedArgs): Promise<number> {
     const result = await extract(raw, {
         explain,
         historyDocuments,
-        parse: { maxTextPartBytes: flagNumber(args, 'max-text-kb', 1024) * 1024 }
+        parse: { maxTextPartBytes: flagPositiveInt(args, 'max-text-kb', 1024) * 1024 }
     });
 
     if (flagBool(args, 'json', false)) {

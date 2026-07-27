@@ -9,15 +9,25 @@ Losing genuine new content is treated as **at least ten times worse** than leavi
 history visible. Every design decision follows from that asymmetry. If a change makes the extractor
 hide more, it needs evidence that it does not hide more of the wrong thing.
 
-Four invariants are enforced by tests, not by convention. Do not weaken them:
+These invariants are enforced by tests, not by convention. Do not weaken them:
 
 1. **Blocks tile their representation.** Concatenating every block's `text` reproduces the canonical
    text exactly. Segmenters must preserve this.
-2. **Never empty.** A message with body text always yields at least one visible segment.
+2. **Never empty.** A message with body text always yields at least one visible segment. An empty
+   result must name its reason: `no_body_parts` or `no_visible_body_text`, never silence.
 3. **Hiding requires a structural anchor**: an attribution line, a client quote container, a client
    separator, or a match against a message that provably existed earlier. Quote depth alone is never
    enough.
 4. **A message never comes out as only its footer.**
+5. **Every structurally independent body section is represented.** `multipart/mixed` siblings are
+   pieces of the message, not alternatives, and size never decides between them. A part left out is
+   named in a `body_section_not_selected` warning with a machine readable reason.
+6. **Degrading is not winning.** A representation that failed to segment may never displace one that
+   segmented successfully, and its content is returned visible and `UNKNOWN` rather than classified.
+7. **Provenance is truthful.** `SourceRef` is discriminated: a segment either names the MIME part it
+   came from or admits it only knows a raw message range. Never invent a part.
+8. **Work is bounded.** Detectors and projections are linear or explicitly capped. A fail-soft catch
+   does not make multi-second event-loop blocking acceptable; see `test/adversarial.test.ts`.
 
 `REPLY_HISTORY` is the only label whose content is hidden. Everything else is shown or collapsed.
 
@@ -25,7 +35,7 @@ Four invariants are enforced by tests, not by convention. Do not weaken them:
 
 | path | contents |
 | --- | --- |
-| `src/mime/` | Stage 1: mailsplit walk, charset chain, normalised message model |
+| `src/mime/` | Stage 1: mailsplit walk, charset chain, normalised message model, body plan |
 | `src/canonical/` | Stage 2: plain text and HTML canonicalisation |
 | `src/segment/` | Stage 3: block segmentation and the inspectable feature vector |
 | `src/detect/` | Stage 4: detectors. Patterns live in `patterns/*.json`, not in code |
@@ -33,10 +43,22 @@ Four invariants are enforced by tests, not by convention. Do not weaken them:
 | `src/classify/` | Stages 6 to 8: rules, reconciliation, confidence bands |
 | `src/corpus/` | Scanner, worker pool, SQLite store, migrations, sampling |
 | `src/annotate/` | Optional LLM annotator. The only code that touches the network |
-| `src/eval/` | Metrics, including catastrophic error counts |
+| `src/eval/` | Metrics and the benchmark's independent safety oracles |
 
 `analyze()` is the core entry point and takes already parsed content. `extract()` parses raw RFC 5322
-and delegates to it. Never duplicate pipeline logic between them.
+and delegates to it. Never duplicate pipeline logic between them: anything `extract()` can express
+must be expressible through `MessageContent`, which is why multi section bodies go through
+`MessageContent.sections` rather than being composed inside `extract()`.
+
+`src/eval/oracle.ts` deliberately reimplements the MIME decision table instead of calling
+`src/mime/select.ts`. A gate that shares its implementation with the thing it checks agrees by
+construction and proves nothing. Keep them separate and keep both matching
+`docs/adr-001-document-global-classification.md`.
+
+Malformed **messages** degrade and never throw. Invalid **caller options** throw `ConfigurationError`
+before any processing, and missing classifier assets throw `PatternAssetError` at require time. Both
+are loaded and validated outside the per-message fail-soft catch, because a fault that repeats on
+every message must not look like one more degraded result.
 
 ## Conventions
 
@@ -69,12 +91,16 @@ npm run format && npm run lint && npm test
 Then, for anything touching segmentation or classification:
 
 ```bash
-node dist/cli/main.js benchmark --sample 3000        # all five checks must read 0
+node dist/cli/main.js benchmark --dir test/fixtures  # committed tier, no corpus needed
+node dist/cli/main.js benchmark --sample 3000        # every catastrophic check must read 0
 node dist/cli/main.js evaluate --model gpt-5.6-sol --history
+npm run verify:package                               # the packed tarball, not the source tree
 ```
 
-`benchmark` needs a scanned corpus and exits non zero if any catastrophic check fires, so it works
-as a regression gate. `evaluate` needs annotations; see `docs/annotation.md`.
+`benchmark` exits non zero if any catastrophic check fires, so it works as a regression gate; the
+`--dir` tier runs in CI on every pull request. `evaluate` needs annotations; see
+`docs/annotation.md`. `verify:package` installs the real tarball and checks the README examples and
+the missing/corrupt asset behaviour against it, which source tests cannot do.
 
 ## Working on the classifier
 

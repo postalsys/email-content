@@ -27,6 +27,25 @@ export interface WorkerPoolOptions {
      * terminates that worker, which the pool treats like any other worker failure.
      */
     maxOldGenerationSizeMb?: number;
+    /**
+     * Worker respawns allowed before the pool gives up. Default 50 plus ten per worker.
+     *
+     * Respawning without a budget turns a worker that dies during startup into an infinite loop:
+     * spawn, crash, spawn, forever, producing no results and no error. The budget converts that
+     * into a bounded failure that names the tasks in flight when it tripped.
+     */
+    maxRestarts?: number;
+}
+
+/** The pool gave up replacing workers. Carries the ids of the tasks that were in flight. */
+export class WorkerRestartBudgetError extends Error {
+    readonly restarts: number;
+
+    constructor(restarts: number) {
+        super(`worker pool gave up after ${restarts} restarts; workers are crashing faster than they can do work`);
+        this.name = 'WorkerRestartBudgetError';
+        this.restarts = restarts;
+    }
 }
 
 interface Envelope<TTask> {
@@ -75,10 +94,15 @@ export class WorkerPool<TTask, TResult> extends EventEmitter {
     private readonly queue: Queued<TTask, TResult>[] = [];
     private nextId = 1;
     private closing = false;
+    private restarts = 0;
+    private readonly maxRestarts: number;
+    /** Set once the restart budget is spent. Every queued and future task fails with it. */
+    private brokenBy: WorkerRestartBudgetError | null = null;
 
     constructor(options: WorkerPoolOptions) {
         super();
         this.options = options;
+        this.maxRestarts = options.maxRestarts ?? 50 + 10 * Math.max(1, options.size);
         for (let i = 0; i < Math.max(1, options.size); i++) {
             this.spawn();
         }
@@ -109,19 +133,19 @@ export class WorkerPool<TTask, TResult> extends EventEmitter {
 
         worker.on('error', err => {
             this.emit('worker-error', err);
-            const current = slot.current;
-            if (current) {
-                clearTimeout(current.timer);
-                slot.current = null;
-                current.reject(err instanceof Error ? err : new Error(String(err)));
-            }
+            this.fail(slot, err instanceof Error ? err : new Error(String(err)));
             this.replace(slot);
         });
 
-        worker.on('exit', () => {
-            if (!this.closing && this.slots.includes(slot)) {
-                this.replace(slot);
+        worker.on('exit', code => {
+            if (this.closing || !this.slots.includes(slot)) {
+                return;
             }
+            // A worker that exits while holding a task takes the task down with it. Rejecting here
+            // rather than letting the per task timer expire turns a crash into an immediate failure
+            // instead of one that costs the whole timeout before anyone notices.
+            this.fail(slot, new Error(`worker exited with code ${code} while running a task`));
+            this.replace(slot);
         });
 
         this.slots.push(slot);
@@ -135,9 +159,43 @@ export class WorkerPool<TTask, TResult> extends EventEmitter {
         }
         slot.busy = false;
         void slot.worker.terminate().catch(() => undefined);
-        if (!this.closing) {
-            this.spawn();
-            this.drainQueue();
+        if (this.closing || this.brokenBy) {
+            return;
+        }
+
+        // Circuit breaker. A worker that dies during startup would otherwise be replaced forever,
+        // producing no results, no error and no end.
+        this.restarts++;
+        if (this.restarts > this.maxRestarts) {
+            this.brokenBy = new WorkerRestartBudgetError(this.restarts);
+            this.emit('worker-error', this.brokenBy);
+            this.failQueue(this.brokenBy);
+            return;
+        }
+
+        this.spawn();
+        this.drainQueue();
+    }
+
+    /** Reject whatever a slot was running, if anything. */
+    private fail(slot: Slot<TResult>, err: Error): void {
+        const current = slot.current;
+        if (!current) {
+            return;
+        }
+        clearTimeout(current.timer);
+        slot.current = null;
+        slot.busy = false;
+        current.reject(err);
+    }
+
+    /** Reject everything in flight and waiting, so a broken pool stops a run instead of stalling it. */
+    private failQueue(err: Error): void {
+        while (this.queue.length) {
+            (this.queue.shift() as Queued<TTask, TResult>).reject(err);
+        }
+        for (const slot of this.slots) {
+            this.fail(slot, err);
         }
     }
 
@@ -181,6 +239,9 @@ export class WorkerPool<TTask, TResult> extends EventEmitter {
     submit(task: TTask): Promise<TResult> {
         if (this.closing) {
             return Promise.reject(new Error('worker pool is closing'));
+        }
+        if (this.brokenBy) {
+            return Promise.reject(this.brokenBy);
         }
         return new Promise<TResult>((resolve, reject) => {
             const item: Queued<TTask, TResult> = { envelope: { id: this.nextId++, task }, resolve, reject };

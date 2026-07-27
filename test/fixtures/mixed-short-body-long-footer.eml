@@ -1,0 +1,20 @@
+From: Alice <alice@example.com>
+To: Bob <bob@example.net>
+Subject: Short body, long footer
+Message-ID: <mixed-short-body@example.com>
+Date: Mon, 13 Jan 2025 09:15:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="OUTER"
+
+--OUTER
+Content-Type: text/plain; charset=utf-8
+
+AUTHORED_SENTINEL yes, Monday works.
+
+--OUTER
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+
+FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway. FOOTER_SENTINEL this notice is automatically appended by the mail gateway.
+
+--OUTER--

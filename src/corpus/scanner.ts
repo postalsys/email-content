@@ -17,8 +17,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { deterministicUnit } from '../util/hash';
-import { WorkerPool } from '../util/worker-pool';
-import { CorpusStore, type ScanRow } from './store';
+import { WorkerPool, WorkerRestartBudgetError } from '../util/worker-pool';
+import { CorpusStore, type RunStatus, type ScanRow } from './store';
 import { type ScanResult, type ScanTask } from './worker';
 
 export interface ScanOptions {
@@ -62,7 +62,14 @@ export interface ScanProgress {
 
 export interface ScanSummary extends ScanProgress {
     runId: number;
-    status: 'completed' | 'interrupted';
+    /**
+     * How the run ended. Only `completed` may be consumed as a baseline.
+     *
+     * `aborted` is a signal or a worker crash loop; `failed` is a database or write error. Both
+     * leave partial output that looks exactly like a small corpus, which is why the state is
+     * recorded explicitly rather than inferred from the row count.
+     */
+    status: RunStatus;
 }
 
 interface Candidate {
@@ -168,6 +175,9 @@ export async function scanCorpus(options: ScanOptions): Promise<ScanSummary> {
         total: selected.length
     });
 
+    /** First failure that made the run untrustworthy. Set once, rethrown after cleanup. */
+    let fatal: Error | null = null;
+
     const pool = new WorkerPool<ScanTask, ScanResult>({
         workerPath: resolveWorkerPath(),
         size: concurrency,
@@ -177,9 +187,15 @@ export async function scanCorpus(options: ScanOptions): Promise<ScanSummary> {
         maxOldGenerationSizeMb: 192,
         workerData: { root, salt: store.salt, maxFileBytes, maxTextPartBytes }
     });
-    pool.on('worker-error', () => {
-        // Reported through the failed counter. Worker errors carry no message content, but there is
-        // nothing actionable to print per occurrence during a long run.
+    pool.on('worker-error', (err: Error) => {
+        // Individual worker errors are reported through the failed counter; there is nothing
+        // actionable to print per occurrence during a long run. A spent restart budget is different:
+        // the pool has given up, no further task can succeed, and the run must stop rather than
+        // grind out a database full of worker_error rows that looks like a scanned corpus.
+        if (err instanceof WorkerRestartBudgetError) {
+            fatal = fatal ?? err;
+            interrupted = true;
+        }
     });
 
     const started = Date.now();
@@ -296,21 +312,49 @@ export async function scanCorpus(options: ScanOptions): Promise<ScanSummary> {
 
         await Promise.all(inFlight);
         flush();
+    } catch (err) {
+        // A write or database failure marks the run failed. Swallowing it, which is what an empty
+        // catch in a cleanup path does, produces a database that looks like a small clean corpus.
+        fatal = fatal ?? (err instanceof Error ? err : new Error(String(err)));
     } finally {
         process.off('SIGINT', onSignal);
         process.off('SIGTERM', onSignal);
-        await pool.close();
-        flush();
+        try {
+            await pool.close();
+        } catch (err) {
+            fatal = fatal ?? (err instanceof Error ? err : new Error(String(err)));
+        }
+        try {
+            flush();
+        } catch (err) {
+            fatal = fatal ?? (err instanceof Error ? err : new Error(String(err)));
+        }
+
         const final = progress();
-        store.finishRun(runId, interrupted ? 'interrupted' : 'completed', {
-            seen: final.seen,
-            processed: final.processed,
-            failed: final.failed,
-            skipped: final.skipped
-        });
-        store.close();
+        const status: RunStatus = fatal ? 'failed' : interrupted ? 'aborted' : 'completed';
+        try {
+            store.finishRun(runId, status, {
+                seen: final.seen,
+                processed: final.processed,
+                failed: final.failed,
+                skipped: final.skipped
+            });
+        } catch (err) {
+            // The run state itself could not be written, so the row still says `running`. That is
+            // already the "do not trust me" state, but the caller must still hear about it.
+            fatal = fatal ?? (err instanceof Error ? err : new Error(String(err)));
+        }
+        try {
+            store.close();
+        } catch (err) {
+            fatal = fatal ?? (err instanceof Error ? err : new Error(String(err)));
+        }
+    }
+
+    if (fatal) {
+        throw fatal;
     }
 
     const final = progress();
-    return { ...final, runId, status: interrupted ? 'interrupted' : 'completed' };
+    return { ...final, runId, status: interrupted ? 'aborted' : 'completed' };
 }

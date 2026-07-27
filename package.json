@@ -12,7 +12,7 @@
         "parser"
     ],
     "license": "MIT",
-    "author": "Postal Systems OÜ",
+    "author": "Postal Systems O\u00dc",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/postalsys/email-content.git"
@@ -55,7 +55,8 @@
         "test": "npm run build:test && node --test .build-test/test/*.test.js",
         "test:fast": "node --test test/*.test.ts",
         "prepublishOnly": "npm run build",
-        "cli": "node dist/cli/main.js"
+        "cli": "node dist/cli/main.js",
+        "verify:package": "node scripts/verify-package.js"
     },
     "dependencies": {
         "@zone-eu/mailsplit": "5.4.14",

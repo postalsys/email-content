@@ -402,6 +402,25 @@ export interface HtmlSegmentation {
  */
 const MAX_UNCLOSED_TAGS = 500;
 
+/**
+ * Runs of character data between tags tolerated before the DOM parse is skipped.
+ *
+ * node-html-parser appends every text node through a path that first calls `remove()` on it, and
+ * `remove()` scans the prospective parent's child list for the node. The node is not in that list
+ * yet, so the scan always runs to the end: appending the k-th text child of one element costs O(k),
+ * and a document that is one element holding many text children is quadratic. Measured on
+ * `<div>` wrapping `a<br>` repeated: 5,000 runs 52ms, 10,000 runs 247ms, 20,000 runs 1,362ms, on
+ * only 120 KB of markup. Elements are unaffected, because the parser constructs them with a null
+ * parent.
+ *
+ * Text runs are counted before parsing as an upper bound on how many of them can end up siblings.
+ * The threshold is set from the corpus rather than guessed: over a deterministic 19,982 message
+ * sample holding 16,867 HTML parts, the highest count seen was 8,337 and the slowest real parse was
+ * 21.5 milliseconds. 15,000 leaves most of a doubling of headroom above the worst real message and
+ * still caps the adversarial case well under a second.
+ */
+const MAX_TEXT_RUNS = 15000;
+
 const OPEN_BLOCK_TAG = /<(?:div|table|tr|td|span|p|blockquote|ul|ol|li|font)\b/gi;
 const CLOSE_BLOCK_TAG = /<\/(?:div|table|tr|td|span|p|blockquote|ul|ol|li|font)\b/gi;
 
@@ -415,9 +434,38 @@ function countPattern(text: string, regex: RegExp): number {
     return count;
 }
 
-/** True when markup is unbalanced enough that parsing it is not worth the time. */
+/**
+ * Count non empty gaps between tags, stopping as soon as the cap is passed.
+ *
+ * Matches the parser's own rule, which creates a text node for any non empty gap, whitespace
+ * included, so an indented document counts its indentation.
+ */
+function exceedsTextRunCap(html: string): boolean {
+    let runs = 0;
+    let i = 0;
+    while (i < html.length) {
+        const lt = html.indexOf('<', i);
+        if (lt === -1) {
+            return runs + 1 > MAX_TEXT_RUNS;
+        }
+        if (lt > i && ++runs > MAX_TEXT_RUNS) {
+            return true;
+        }
+        const gt = html.indexOf('>', lt + 1);
+        if (gt === -1) {
+            return false;
+        }
+        i = gt + 1;
+    }
+    return false;
+}
+
+/** True when markup is shaped badly enough that parsing it is not worth the time. */
 export function isPathologicalHtml(html: string): boolean {
-    return countPattern(html, OPEN_BLOCK_TAG) - countPattern(html, CLOSE_BLOCK_TAG) > MAX_UNCLOSED_TAGS;
+    if (countPattern(html, OPEN_BLOCK_TAG) - countPattern(html, CLOSE_BLOCK_TAG) > MAX_UNCLOSED_TAGS) {
+        return true;
+    }
+    return exceedsTextRunCap(html);
 }
 
 export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentation {
@@ -433,6 +481,15 @@ export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentat
         root = parse(html, { comment: false });
     } catch {
         // A parse failure must still yield the content, as one unknown block.
+        //
+        // `content` is the block's projected text, and everything downstream reads it: `toSegments`
+        // drops segments whose text is blank, and the never-empty invariant guard tests it too.
+        // Leaving it empty, which is what this did, meant a malformed body carrying authored text
+        // came back as zero visible segments, zero hidden segments and a lone `html_parse_error`.
+        // Total content loss whose only trace was a warning.
+        //
+        // `text` stays the raw HTML so blocks still tile the source exactly.
+        const projected = stripTagsToText(html);
         return {
             source: html,
             degraded: true,
@@ -443,11 +500,11 @@ export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentat
                     representation: 'html',
                     mimePart,
                     text: html,
-                    content: '',
+                    content: projected,
                     start: 0,
                     end: html.length,
                     html,
-                    features: computeFeatures('', { index: 0, total: 1, start: 0, totalChars: html.length, quoteDepth: 0 }),
+                    features: computeFeatures(projected, { index: 0, total: 1, start: 0, totalChars: html.length, quoteDepth: 0 }),
                     evidence: []
                 }
             ]
@@ -530,12 +587,26 @@ export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentat
     let previousEnd = 0;
 
     for (const { run, domPath } of runs) {
-        const ranges = run.nodes.map(node => node.range).filter(Boolean) as [number, number][];
-        if (!ranges.length) {
+        // Loops rather than Math.min/max over a spread. A run of an HTML document can hold more
+        // nodes than V8 allows call arguments, and the resulting RangeError would degrade the whole
+        // message for no reason.
+        let nodeStart = Infinity;
+        let nodeEnd = -Infinity;
+        for (const node of run.nodes) {
+            const range = node.range;
+            if (!range) {
+                continue;
+            }
+            if (range[0] < nodeStart) {
+                nodeStart = range[0];
+            }
+            if (range[1] > nodeEnd) {
+                nodeEnd = range[1];
+            }
+        }
+        if (nodeStart === Infinity) {
             continue;
         }
-        const nodeStart = Math.min(...ranges.map(range => range[0]));
-        const nodeEnd = Math.max(...ranges.map(range => range[1]));
         if (nodeEnd <= previousEnd) {
             continue;
         }

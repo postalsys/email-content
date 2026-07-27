@@ -55,24 +55,67 @@ interface RawPattern {
 
 const BUNDLED_DIR = path.join(__dirname, 'patterns');
 
-function readJson(dir: string, file: string): Record<string, unknown> | null {
+/**
+ * A classifier asset is missing or corrupt.
+ *
+ * An installation defect, not malformed email, and therefore deliberately outside the per message
+ * fail-soft path. Without the pattern files every detector returns nothing: no reply header is
+ * recognised, no quoted history is found, and every message comes back looking like new content.
+ * That reads as success, which makes it the worst possible failure mode for a package whose whole
+ * job is to know which parts of a message are history.
+ */
+export class PatternAssetError extends Error {
+    readonly code = 'pattern_assets_unusable';
+    readonly file: string | null;
+
+    constructor(message: string, file: string | null = null) {
+        super(message);
+        this.name = 'PatternAssetError';
+        this.file = file;
+    }
+}
+
+type ReadResult = { ok: true; value: Record<string, unknown> } | { ok: false; reason: 'missing' | 'invalid' };
+
+function readJson(dir: string, file: string): ReadResult {
+    let raw: string;
     try {
-        const raw = fs.readFileSync(path.join(dir, file), 'utf8');
-        const parsed: unknown = JSON.parse(raw);
-        return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+        raw = fs.readFileSync(path.join(dir, file), 'utf8');
     } catch {
-        return null;
+        return { ok: false, reason: 'missing' };
+    }
+    // Present but unreadable is a different fault from absent, and must not be silently treated as
+    // an empty pattern set. A truncated file in a published tarball produced exactly that.
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+            return { ok: false, reason: 'invalid' };
+        }
+        return { ok: true, value: parsed as Record<string, unknown> };
+    } catch {
+        return { ok: false, reason: 'invalid' };
     }
 }
 
 function loadFile(file: string, overrideDir: string | null): Record<string, unknown> {
     if (overrideDir) {
         const override = readJson(overrideDir, file);
-        if (override) {
-            return override;
+        if (override.ok) {
+            return override.value;
         }
+        if (override.reason === 'invalid') {
+            throw new PatternAssetError(`Pattern file ${file} in ${overrideDir} is not valid JSON.`, file);
+        }
+        // Absent from an override directory is normal: an override may replace only some files.
     }
-    return readJson(BUNDLED_DIR, file) || {};
+    const bundled = readJson(BUNDLED_DIR, file);
+    if (bundled.ok) {
+        return bundled.value;
+    }
+    if (bundled.reason === 'invalid') {
+        throw new PatternAssetError(`Bundled pattern file ${file} is corrupt. Reinstall the package.`, file);
+    }
+    return {};
 }
 
 function compileLinePatterns(input: unknown, invalid: string[]): LinePattern[] {
@@ -154,7 +197,7 @@ export function countPatterns(sets: PatternSets): number {
  */
 export function assertPatternsLoaded(sets: PatternSets, source: string): void {
     if (countPatterns(sets) === 0) {
-        throw new Error(
+        throw new PatternAssetError(
             `No detector patterns could be loaded from ${source}. ` +
                 'The pattern JSON files are missing from the installation or the bundle. ' +
                 'Without them no reply history can be detected.'

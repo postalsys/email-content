@@ -6,8 +6,8 @@
  * corpus database layer.
  */
 
-import { EXTRACTOR_VERSION, PROCESSING_VERSION } from '../types';
-import { parseArgs } from './args';
+import { ConfigurationError, EXTRACTOR_VERSION, PROCESSING_VERSION } from '../types';
+import { CliOptionError, parseArgs } from './args';
 
 const USAGE = `email-content <command> [options]
 
@@ -35,6 +35,7 @@ Commands:
     --history <path>          Corpus .sqlite or folder of .eml files, to resolve thread history
 
   benchmark                   Measure throughput and catastrophic error rates
+    --dir <path>              Folder of .eml files to run instead of the corpus database
     --db <path>               Corpus database
     --sample <n>              Messages to run (default 2000)
     --traffic <class>         human, ticketing, mailing-list, bulk, all (default human)
@@ -113,6 +114,13 @@ main(process.argv.slice(2)).then(
     },
     (err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
+        // Exit 2 marks "you asked for something impossible", separately from exit 1, which the
+        // benchmark and evaluate commands use to report that the run itself found a problem.
+        if (err instanceof CliOptionError || err instanceof ConfigurationError) {
+            process.stderr.write(`invalid option: ${message}\n`);
+            process.exitCode = 2;
+            return;
+        }
         process.stderr.write(`error: ${message}\n`);
         process.exitCode = 1;
     }

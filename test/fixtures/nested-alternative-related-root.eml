@@ -1,0 +1,33 @@
+From: Alice <alice@example.com>
+To: Bob <bob@example.net>
+Subject: Related root by start parameter
+Message-ID: <nested-related@example.com>
+Date: Mon, 13 Jan 2025 09:15:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="REL"; type="multipart/alternative"; start="<root@example.com>"
+
+--REL
+Content-Type: image/png
+Content-ID: <logo@example.com>
+Content-Disposition: inline; filename="logo.png"
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUg==
+
+--REL
+Content-Type: multipart/alternative; boundary="ALT"
+Content-ID: <root@example.com>
+
+--ALT
+Content-Type: text/plain; charset=utf-8
+
+AUTHORED_SENTINEL the plan is attached below.
+
+--ALT
+Content-Type: text/html; charset=utf-8
+
+<div dir="ltr">AUTHORED_SENTINEL the plan is attached below.<img src="cid:logo@example.com"></div>
+
+--ALT--
+
+--REL--

@@ -30,3 +30,8 @@ jobs:
       - run: npm run format:check
       - run: npm run build
       - run: npm test
+      # The committed fixture tier of the structural benchmark. Small, deterministic, and mandatory
+      # on every pull request. It exits non zero when any message that had visible body text going
+      # in produced no output, or when content was hidden without a structural anchor. The private
+      # corpus tier is a pre-release job and cannot run here, because the corpus is private email.
+      - run: node dist/cli/main.js benchmark --dir test/fixtures

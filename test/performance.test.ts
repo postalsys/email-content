@@ -45,14 +45,19 @@ describe('performance bounds', () => {
 
     it('refuses to spend seconds parsing wildly unbalanced markup', async () => {
         // Only 25 KB, but it took six and a half seconds inside the HTML parser.
-        const html = '<div>'.repeat(5000);
+        //
+        // The input carries authored text on purpose. This case used to be `'<div>'.repeat(5000)`,
+        // which contains no text at all, and asserted only that a warning was present. It could
+        // therefore never have caught the defect it was meant to cover: the fallback returned the
+        // warning and dropped the content, and the test passed.
+        const html = `${'<div>'.repeat(5000)}<p>SENTINEL</p>`;
         assert.equal(isPathologicalHtml(html), true);
 
         const elapsed = await timed(async () => {
             const result = await analyze({ html });
-            // Degraded, but the content is still returned rather than dropped.
             assert.ok(result.warnings.some(warning => warning.code === 'html_parse_error'));
-            assert.equal(result.originalAvailable, true);
+            // Degraded, but the content really is returned rather than dropped.
+            assert.ok(result.segments.some(segment => segment.text.includes('SENTINEL')));
         });
         assert.ok(elapsed < BUDGET_MS, `took ${elapsed}ms`);
     });

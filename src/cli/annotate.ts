@@ -23,7 +23,7 @@ import { segmentHtmlBlocks } from '../segment/html-blocks';
 import { segmentTextBlocks } from '../segment/text-blocks';
 import { type Block } from '../segment/types';
 import { LABELS, type Label } from '../types';
-import { flagBool, flagNumber, flagString, type ParsedArgs } from './args';
+import { flagBool, flagPositiveInt, flagString, type ParsedArgs } from './args';
 
 interface Prepared {
     path: string;
@@ -94,8 +94,8 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
     }
 
     const model = flagString(args, 'model', 'gpt-5.6-sol');
-    const limit = flagNumber(args, 'sample', 25);
-    const concurrency = flagNumber(args, 'concurrency', 4);
+    const limit = flagPositiveInt(args, 'sample', 25);
+    const concurrency = flagPositiveInt(args, 'concurrency', 4);
     const traffic = flagString(args, 'traffic', 'human');
     const seed = flagString(args, 'seed', 'annotate');
     const dryRun = flagBool(args, 'dry-run', false);
@@ -111,7 +111,10 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
     }
 
     const store = new CorpusStore(dbPath);
-    const root = store.queryOne<{ root: string }>('SELECT root FROM runs ORDER BY id DESC LIMIT 1')?.root;
+    // Only a run that finished cleanly. An interrupted or failed run holds partial output that
+    // looks exactly like a small corpus, and reading it as a baseline approves a release against
+    // whatever fraction of the messages happened to finish.
+    const root = store.latestCompletedRun()?.root;
     if (!root) {
         process.stderr.write('no completed scan run found\n');
         store.close();

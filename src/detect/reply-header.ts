@@ -74,60 +74,108 @@ export function detectAttributionLine(line: string): Evidence | null {
     return best;
 }
 
+/** Is this run of header-shaped lines convincing enough to anchor a region? */
+function isStrong(roles: ReadonlySet<string>): boolean {
+    // A convincing block names the originator plus at least a date or a subject, so that a
+    // pasted "To: ... Cc: ..." address list on its own does not qualify.
+    return roles.size >= MIN_FIELDS && roles.has('originator') && (roles.has('date') || roles.has('subject'));
+}
+
 /**
  * Detect an embedded header block starting at or after `from`.
  *
  * Returns the first match found, scanning forward. The caller supplies de-prefixed line content so
  * that a header block inside a quote is detected the same way as one outside it.
+ *
+ * Single pass, deliberately. The obvious implementation restarts an inner forward scan at every
+ * candidate line, which is quadratic: 12,000 consecutive `Cc:` lines never form a strong block but
+ * make the inner scan traverse almost the whole remaining input from every outer position, and
+ * measured at 4.8 seconds of blocked event loop on that input. Inbound mail is attacker controlled,
+ * so that is a denial of service, not a slow path.
+ *
+ * The single pass is exactly equivalent, not an approximation. Lines partition into *chains*:
+ * maximal runs of header-shaped lines joined by blank gaps of at most `MAX_GAP`, terminated by any
+ * other line or by a longer blank run. The set of roles collected from a start inside a chain is a
+ * subset of the set collected from the chain's own start, and strength is monotone under superset,
+ * so if the chain start is not strong no later start in that chain can be, and if it is strong it
+ * is also the earliest strong start. Checking each chain once therefore returns the same match the
+ * restarting scan did.
  */
 export function detectQuotedHeaderBlock(lines: readonly string[], from = 0): ReplyHeaderMatch | null {
     const patterns = loadPatterns();
 
-    for (let i = from; i < lines.length; i++) {
-        const roles = new Set<string>();
-        let gap = 0;
-        let last = -1;
+    const evidence: Evidence = {
+        id: 'reply:quoted_header_block',
+        kind: 'reply-anchor',
+        // Below a single line attribution on purpose: a person can paste this shape.
+        strength: 0.88
+    };
 
-        for (let j = i; j < lines.length; j++) {
-            const line = (lines[j] ?? '').trim();
-            if (!line) {
-                gap++;
-                if (gap > MAX_GAP) {
-                    break;
-                }
+    // Start of the chain currently being accumulated, which may be a blank line: the restarting
+    // scan reported the outer index it began at, and that index is allowed to sit on the at most
+    // MAX_GAP blank lines that lead into the first field.
+    let chainStart = -1;
+    let roles = new Set<string>();
+    let last = -1;
+    let gap = 0;
+
+    for (let j = Math.max(0, from); j < lines.length; j++) {
+        const line = (lines[j] ?? '').trim();
+
+        if (!line) {
+            if (chainStart === -1) {
+                chainStart = j;
+                gap = 1;
                 continue;
             }
-            const matched = patterns.quotedHeaderFields.find(pattern => pattern.regex.test(line));
-            if (!matched) {
-                break;
+            gap++;
+            if (gap <= MAX_GAP) {
+                continue;
             }
-            gap = 0;
-            const role = matched.role || matched.id;
-            const value = valueOf(line);
-            // Only fields whose value looks like a real header value count towards the threshold.
-            // The line still continues the block either way, so a "Subject:" with unusual content
-            // does not truncate an otherwise convincing header block.
-            if (role === 'originator' ? ORIGINATOR_VALUE.test(value) : role === 'date' ? DATE_VALUE.test(value) : true) {
-                roles.add(role);
+            // The blank run is now too long to be an internal gap. Close the chain, then begin a
+            // new tentative one far enough into the blank run that exactly MAX_GAP blanks can still
+            // precede a following field line, which is where the restarting scan would have found
+            // its next viable start.
+            if (isStrong(roles) && last >= chainStart) {
+                return { startLine: chainStart, endLine: last, evidence };
             }
-            last = j;
+            roles = new Set<string>();
+            last = -1;
+            chainStart = j - MAX_GAP + 1;
+            gap = MAX_GAP;
+            continue;
         }
 
-        // A convincing block names the originator plus at least a date or a subject, so that a
-        // pasted "To: ... Cc: ..." address list on its own does not qualify.
-        const strong = roles.size >= MIN_FIELDS && roles.has('originator') && (roles.has('date') || roles.has('subject'));
-        if (strong && last >= i) {
-            return {
-                startLine: i,
-                endLine: last,
-                evidence: {
-                    id: 'reply:quoted_header_block',
-                    kind: 'reply-anchor',
-                    // Below a single line attribution on purpose: a person can paste this shape.
-                    strength: 0.88
-                }
-            };
+        const matched = patterns.quotedHeaderFields.find(pattern => pattern.regex.test(line));
+        if (!matched) {
+            // Ordinary content terminates the chain outright.
+            if (isStrong(roles) && last >= chainStart && chainStart !== -1) {
+                return { startLine: chainStart, endLine: last, evidence };
+            }
+            roles = new Set<string>();
+            last = -1;
+            chainStart = -1;
+            gap = 0;
+            continue;
         }
+
+        if (chainStart === -1) {
+            chainStart = j;
+        }
+        gap = 0;
+        const role = matched.role || matched.id;
+        const value = valueOf(line);
+        // Only fields whose value looks like a real header value count towards the threshold.
+        // The line still continues the block either way, so a "Subject:" with unusual content
+        // does not truncate an otherwise convincing header block.
+        if (role === 'originator' ? ORIGINATOR_VALUE.test(value) : role === 'date' ? DATE_VALUE.test(value) : true) {
+            roles.add(role);
+        }
+        last = j;
+    }
+
+    if (chainStart !== -1 && isStrong(roles) && last >= chainStart) {
+        return { startLine: chainStart, endLine: last, evidence };
     }
 
     return null;

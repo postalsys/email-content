@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { extract } from '../src/index';
-import { type ExtractionResult } from '../src/types';
+import { type ExtractionResult, mimePartOf } from '../src/types';
 import { listFixtures, readFixture } from './helpers';
 
 function visibleText(result: ExtractionResult): string {
@@ -77,9 +77,10 @@ describe('extract safety invariants', () => {
             const result = await extract(readFixture(name));
             const parsedSomething = result.segments.length + result.hiddenSegments.length > 0;
             if (!parsedSomething) {
-                // Only allowed when the message genuinely has no text parts.
+                // Only allowed when the message genuinely has no text parts, or when the parts it
+                // has hold no text a reader would have seen. Either way it must say which.
                 assert.ok(
-                    result.warnings.some(warning => warning.code === 'no_body_parts'),
+                    result.warnings.some(warning => warning.code === 'no_body_parts' || warning.code === 'no_visible_body_text'),
                     `${name} produced nothing without saying why`
                 );
                 continue;
@@ -127,9 +128,10 @@ describe('extract safety invariants', () => {
         for (const name of listFixtures()) {
             const result = await extract(readFixture(name));
             for (const segment of [...result.segments, ...result.hiddenSegments]) {
-                assert.ok(segment.source.mimePart.length > 0, name);
+                assert.equal(segment.source.kind, 'mime-part', name);
+                assert.ok((mimePartOf(segment.source) ?? '').length > 0, name);
                 assert.ok(segment.source.end >= segment.source.start, name);
-                assert.ok(['text', 'html'].includes(segment.source.representation), name);
+                assert.ok(segment.source.kind === 'mime-part' && ['text', 'html'].includes(segment.source.representation), name);
             }
         }
     });

@@ -41,8 +41,11 @@ raw .eml
                       html:  DOM, source ranges, text projection
    |
    v
-[3] segment           ordered blocks with features, per representation
-   |
+[3] plan body         ordered sections from the MIME tree: alternatives
+   |                  collapse to one, mixed siblings each stay
+   v
+[3] segment           ordered blocks with features, per representation,
+   |                  then one document-global sequence across sections
    v
 [4] detect            reply headers, forward headers, client containers,
                       signatures, disclaimers. Evidence, not verdicts.
@@ -54,8 +57,9 @@ raw .eml
 [6] classify          rule baseline now, model-ready sequence interface later
    |
    v
-[7] reconcile         align plain and HTML, transfer strong evidence,
-                      pick the primary representation
+[7] reconcile         pick each section's primary representation *before*
+                      classification, cap confidence afterwards where the
+                      two renderings disagree
    |
    v
 [8] calibrate         confidence per block and per message, visibility bands
@@ -163,6 +167,13 @@ sequence model can be dropped in later as an additional evidence source, with th
 still enforced on top of its output. The model never gets to override the anchor requirement.
 
 ## Stage 7: reconciliation
+
+Selection runs before classification, not after. A message can hold several independent body
+sections, and the classifier has to see all of them as one linear sequence for its positional rules
+to mean anything. Choosing the representation first is what makes that possible, and it is possible
+because the choice needs only content length, anchor presence and whether segmentation degraded,
+none of which are labels. Recorded in
+[adr-001-document-global-classification.md](adr-001-document-global-classification.md).
 
 Measured over the whole corpus on human authored replies that carry both representations and show
 quoting at all: 25 percent are marked only in the HTML, 72 percent in both, and 3 percent only in

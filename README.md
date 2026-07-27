@@ -33,8 +33,15 @@ npm install @postalsys/email-content
 ```
 
 **Runtime requirements.** The library is plain CommonJS JavaScript with no compiled dependencies,
-and runs on **Node 20 or later**. Nothing in the dependency tree is native: `@zone-eu/mailsplit`,
-`libmime` and `node-html-parser` are pure JavaScript, and none of them is ESM only.
+and runs on **Node 20 or later**. Nothing in the dependency tree is native and none of it is ESM
+only. There are exactly three direct runtime dependencies, each present for correctness rather than
+convenience:
+
+| dependency | why |
+| --- | --- |
+| `@zone-eu/mailsplit` | The only local MIME parser that walks the tree non-destructively, emitting raw header and body bytes in document order with IMAP style part numbers. That is what makes every segment traceable to exact source bytes. |
+| `libmime` | Header encoded-word decoding, charset handling and `format=flowed` unfolding. |
+| `node-html-parser` | A forgiving HTML parser that exposes a source `range` on every node, which is what lets an HTML block point back at the offsets it came from. |
 
 The corpus tooling shipped in the same package (`corpus`, `annotate`, `evaluate`, `benchmark`)
 needs **Node 22.5 or later**, because it uses the built in `node:sqlite`. That module is loaded
@@ -70,7 +77,7 @@ The primary entry point takes content you have already parsed. Most callers hold
 have a raw message to hand.
 
 ```js
-const { analyze } = require('email-content');
+const { analyze } = require('@postalsys/email-content');
 
 const result = await analyze({
     text: plainTextBody,   // optional
@@ -91,11 +98,13 @@ is where quote structure survives, and the plain text is used as a cross check.
 If you do have a raw RFC 5322 message, `extract()` parses it and runs the same pipeline:
 
 ```js
-const { extract } = require('email-content');
+const { extract } = require('@postalsys/email-content');
 const result = await extract(fs.readFileSync('message.eml'));
 ```
 
 ### Result
+
+Both entry points return the same shape. `extract()` adds nothing except optional MIME diagnostics.
 
 ```jsonc
 {
@@ -103,14 +112,15 @@ const result = await extract(fs.readFileSync('message.eml'));
     {
       "type": "NEW_CONTENT",
       "text": "No, wait until Monday.",
-      "html": "<div>No, wait until Monday.</div>",
+      "html": "<div>No, wait until Monday.</div>",   // UNTRUSTED, see the security section
       "confidence": 0.95,
       "visibility": "show",      // show | collapse | hide
       "reasons": ["new_content_default", "html_primary_representation"],
       "source": {
+        "kind": "mime-part",     // "mime-part" | "raw-message"
         "mimePart": "1.2",       // IMAP style part path
         "representation": "html",
-        "blockIndex": 0,
+        "blockIndex": 0,         // position within this part, not within the whole message
         "start": 0,              // character offsets into the canonical part text
         "end": 79,
         "domPath": "/0/1"
@@ -122,7 +132,7 @@ const result = await extract(fs.readFileSync('message.eml'));
   "warnings": [],
   "originalAvailable": true,
   "primaryRepresentation": "html",
-  "extractorVersion": "0.1.0",
+  "extractorVersion": "<current package version>",
   "historyUsed": false,
   "isReply": true
 }
@@ -133,6 +143,22 @@ Segment types: `NEW_CONTENT`, `INLINE_QUOTE`, `REPLY_HISTORY`, `FORWARDED_CONTEN
 
 Render `segments`. `hiddenSegments` holds what the extractor is confident is embedded reply
 history, in full, so a client can offer to reveal it. Nothing is ever discarded.
+
+A few fields are easy to misread:
+
+- **`originalAvailable`** is always `true`, and it is a statement about behaviour, not about this
+  object. The library never mutates or consumes your source, so the original is always still
+  recoverable. It is not embedded in the result: **you** must retain it.
+- **`hiddenSegments`** holds only segments whose `visibility` is `hide`. Segments marked `collapse`
+  stay in `segments`, because a collapsed segment is still rendered, just folded.
+- **`primaryRepresentation`** names what drove the classification of the primary section. It is not
+  an inventory of every MIME part represented: a message with several body sections can produce
+  segments from more than one part.
+- **`source.kind`** discriminates the two provenance cases. `mime-part` carries the part path,
+  representation and block index. `raw-message` carries only a byte range, and is used when MIME
+  parsing failed outright and there is no part structure to point at.
+- **`isReply: false`** means "not known to be a reply". When parsing fails there are no threading
+  headers to read, and the result carries a `reply_status_unknown` warning to say so.
 
 ### Thread history
 
@@ -150,8 +176,127 @@ const result = await analyze(
 
 History is always optional. Extraction works without it and never depends on it.
 
-`analyze()` and `extract()` never throw. Malformed input produces a result whose body is a single
-visible `UNKNOWN` segment plus a warning.
+`analyze()` and `extract()` never throw for malformed **message input**. A body that cannot be
+segmented is returned as a single visible `UNKNOWN` segment plus a warning.
+
+## Security: rendering HTML
+
+`segment.html` is **untrusted, attacker controlled markup**, copied verbatim out of the message. It
+can contain event handler attributes, remote images and stylesheets that report the fact and time of
+reading, forms, frames, unsafe SVG, `javascript:` and `data:` URLs, and tracking links.
+
+Classification is not sanitisation. This library decides whether a span of the message is new
+content, reply history or a footer. It says nothing about whether that span is safe to put into a
+browser, and it deliberately does not rewrite source markup, because rewriting would destroy the
+byte ranges every segment points at.
+
+No sanitiser ships here, and that is deliberate too. Sanitisation is context dependent and
+security sensitive, and a weak one bundled into an extraction library would be worse than none: it
+would look like protection without being it.
+
+The order matters:
+
+```text
+raw message
+  -> MIME parse and classification      (this library)
+  -> choose visible segments            (your product policy)
+  -> sanitise each untrusted HTML segment   (a maintained sanitiser)
+  -> render under a restrictive CSP
+```
+
+- **Never** assign `segment.html` to `innerHTML`, `dangerouslySetInnerHTML` or any equivalent.
+- Sanitise **after** segmentation and immediately before rendering. Sanitising before extraction
+  strips the Gmail and Outlook quote containers the detectors need, and costs accuracy.
+- Block remote images, stylesheets, fonts, media, frames and forms. Loading them leaks that the mail
+  was opened, from where, and when.
+- Strip event attributes, and dangerous URL schemes such as `javascript:` and `vbscript:`. Decide a
+  deliberate policy for `data:` URLs rather than allowing them by default.
+- Rewrite or proxy links according to your product's policy.
+- Use a Content Security Policy as defence in depth, not as the sanitiser. CSP does not neutralise
+  every dangerous construct or navigation.
+- Do not load remote resources while sanitising or previewing, on the server either.
+
+Desktop mail clients and browser renderers have different threat models. Document which environment
+your product supports rather than assuming one set of rules covers both. Before rolling extraction
+out, prove in an integration test in the consuming application that active attributes, hostile URLs,
+forms and tracking images are all neutralised and that no remote request is made.
+
+## Running this on untrusted mail
+
+Inbound mail is attacker controlled, and this library does its work synchronously on the caller's
+event loop. Every algorithm here is bounded or linear in its input, and the adversarial cases that
+were not are covered by scaling tests in `test/adversarial.test.ts`. That is a floor, not a
+guarantee: the library cannot interrupt its own synchronous work, so a future bug in a detector or
+in a dependency is a stalled event loop for whoever called it.
+
+A service that renders mail from strangers should therefore put a boundary around extraction rather
+than rely on the library alone:
+
+- **Cap the raw message before `extract()`.** Reject oversized payloads at the transport if you can,
+  before buffering. `maxMessageBytes` is a backstop for what still gets through, not a substitute.
+- **Cap the bodies before `analyze()`**, with `maxTotalDecodedTextBytes` and `maxContentChars`.
+  Per part limits do not bound total work: many legal sized parts add up.
+- **Run untrusted parsing in a worker thread or subprocess.** That is the only way to enforce a wall
+  clock or memory limit, because terminating the worker is the only mechanism that can interrupt a
+  synchronous call.
+- **Enforce a wall clock timeout by terminating that worker**, not by racing a promise. A promise
+  race resolves while the blocked loop keeps burning.
+- **Bound concurrency**, so a burst of large messages cannot occupy every worker at once.
+- **Keep the original message.** On timeout, memory pressure or any degraded result, fall back to
+  rendering it. Extraction output is a rendering artifact that can always be recomputed; the raw
+  message is the system of record.
+
+A syntactically small input can still exploit an algorithmic bug, so size limits do not remove the
+need for isolation.
+
+### Options and limits
+
+```js
+const result = await extract(raw, {
+    parse: {
+        maxMessageBytes: 64 * 1024 * 1024,        // whole raw message
+        maxTotalDecodedTextBytes: 16 * 1024 * 1024, // decoded text across every part
+        maxTextPartBytes: 1024 * 1024,            // decoded text per part
+        maxParts: 500,
+        maxHeadSize: 1024 * 1024
+    },
+    confidence: { collapseThreshold: 0.7 }        // partial: the rest keep their defaults
+});
+
+const result2 = await analyze({ text, html }, { maxContentChars: 8_000_000 });
+```
+
+Recommended ceilings, documented rather than enforced, because the host knows its own memory budget
+and a startup crash on a value you chose deliberately protects nobody: `maxTextPartBytes` around
+32 MiB, `maxParts` around 10,000, `maxHeadSize` around 16 MiB.
+
+**Malformed input and invalid configuration are handled differently, on purpose.**
+
+| | behaviour |
+| --- | --- |
+| Malformed **message** | Degrades. Never throws. Returns what it can, plus a warning. |
+| Invalid **option** | Throws `ConfigurationError` before any processing. |
+
+A bad message is the sender's doing and the caller cannot fix it. A bad option is the programmer's
+own mistake, it will repeat on every message, and returning a plausible looking degraded result for
+it would hide an operational fault behind what reads like ordinary output. `ConfigurationError`
+carries a stable `code` and the `option` name, and never the offending value, message content or
+credentials, so it is safe to log.
+
+Values are rejected, never clamped: clamping makes the pipeline behave differently from what you
+asked for, silently, forever. `NaN`, infinities, negatives, zero where a positive is required,
+fractions where an integer is required, and an inverted `collapseThreshold`/`hideThreshold` pair all
+throw. A large but finite value is accepted.
+
+Exceeding an **input** limit is not a configuration error. It emits `input_limit_exceeded` naming
+the option that fired, returns in full whatever the limit did allow through, and never throws.
+
+Validation runs on every call, so it is kept cheap and deterministic. It is not amortised: if you
+need it paid once, hold the validated options yourself with `validateParseOptions()` and
+`validateConfidenceConfig()`.
+
+The command line validates the same way and exits with status 2, naming the option, rather than
+letting `--concurrency -1` or `--timeout -1` reach a worker pool or a SQL query.
 
 ## Command line
 
@@ -273,8 +418,12 @@ The corpus this was built against is private email, and the project is built acc
   text to an LLM API; see [docs/annotation.md](docs/annotation.md).
 - Source `.eml` files are opened read only and never modified.
 - No message body, subject or address is written to logs, to the terminal, or to the corpus
-  database. Subjects and addresses are stored as salted hashes; sender domains are kept because
+  database by any command except `disagreements`, which prints block text on purpose so a human can
+  adjudicate it. Subjects and addresses are stored as salted hashes; sender domains are kept because
   stratified sampling needs them.
+- "Processed locally" is not the same as "can never leave the machine". `annotate` sends block text
+  to an LLM API when you opt into it, file paths and diagnostics appear in your own terminal and
+  shell history, and the corpus database sits on whatever disk and backup you point it at.
 - The corpus database is derived from private mail and is not anonymised. It is gitignored. See
   [docs/threat-model.md](docs/threat-model.md) for exactly what it can still reveal.
 
@@ -283,6 +432,7 @@ The corpus this was built against is private email, and the project is built acc
 | document | contents |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | Pipeline stages, dependency choices and why, safety invariants |
+| [docs/adr-001-document-global-classification.md](docs/adr-001-document-global-classification.md) | Why multipart sections are classified as one sequence, and the two index spaces that follow |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Phases, decisions taken, open questions |
 | [docs/threat-model.md](docs/threat-model.md) | What is stored, what it reveals, hostile content handling |
 | [docs/corpus-report.md](docs/corpus-report.md) | Statistics over the working corpus (generated, gitignored) |
@@ -308,8 +458,16 @@ Pattern sets in `src/detect/patterns/` can be overridden at runtime by pointing
 ## Status
 
 Working and measured: the MIME parser, canonicalisation, block segmentation, the deterministic rule
-baseline, thread history matching, the corpus scanner over 320k messages, LLM assisted annotation,
-the evaluation harness, the CLI, and 123 tests including fuzzing and performance bounds.
+baseline, section aware multipart body planning, thread history matching, the corpus scanner over
+320k messages, LLM assisted annotation, the evaluation harness, the CLI, and a test suite covering
+fuzzing, hostile input scaling bounds and the two content loss regressions. Run `npm test` for the
+current count rather than trusting a number written here, which goes stale the moment a test is
+added.
 
-Not built: the local annotation app for adjudicating disagreements, and a learned sequence model.
-Both are described in [docs/implementation-plan.md](docs/implementation-plan.md).
+**Planned, not built.** Described in [docs/implementation-plan.md](docs/implementation-plan.md):
+
+- the local review application for adjudicating annotator disagreements;
+- the corpus redaction workflow;
+- a learned sequence model.
+
+Anything in this README describing those is design intent, not a shipped feature.
