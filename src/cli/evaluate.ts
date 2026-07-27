@@ -18,12 +18,14 @@ import { CorpusStore } from '../corpus/store';
 import { corpusThreadResolver } from '../corpus/thread-index';
 import { evaluate, type EvaluationReport, type LabelledBlock } from '../eval/metrics';
 import { parseMessage } from '../mime/parse';
-import { blockIndexOf, LABELS, type Label } from '../types';
+import { blockIndexOf, LABELS, mimePartOf, type Label } from '../types';
 import { flagBool, flagNonNegativeInt, flagString, type ParsedArgs } from './args';
 
 interface ReferenceRow {
     path: string;
     block_index: number;
+    /** MIME part the block came from. Null on annotations made before it was recorded. */
+    mime_part: string | null;
     label: Label;
     char_count: number;
     client: string | null;
@@ -123,7 +125,7 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
     // Latest annotation per (path, block) for the chosen model, so re-annotated messages do not
     // count twice.
     const reference = store.query<ReferenceRow>(
-        `SELECT a.path, a.block_index, a.label, a.char_count, m.client, m.lang, m.reply_style
+        `SELECT a.path, a.block_index, a.mime_part, a.label, a.char_count, m.client, m.lang, m.reply_style
          FROM annotations a
          JOIN annotation_runs r ON r.id = a.run_id
          JOIN messages m ON m.path = a.path
@@ -193,26 +195,44 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
 
         // Map every reference block to the prediction covering it. Segments merge adjacent blocks,
         // so a block is matched by its index falling inside a segment's block range.
-        const predictions = new Map<number, { label: Label; hidden: boolean }>();
+        //
+        // Keyed per MIME part, not by block index alone. Block indices are section-local, so in a
+        // multipart message with several body sections two segments legitimately start at index 0,
+        // and a flat map silently kept only the last of them. Older annotations predate the part
+        // being recorded; those fall back to a single unnamed bucket, which is exactly the previous
+        // behaviour for the single section messages they came from.
+        const predictions = new Map<string, Map<number, { label: Label; hidden: boolean }>>();
+        const bucketFor = (part: string) => {
+            let bucket = predictions.get(part);
+            if (!bucket) {
+                bucket = new Map();
+                predictions.set(part, bucket);
+            }
+            return bucket;
+        };
         for (const segment of [...result.segments, ...result.hiddenSegments]) {
             const blockIndex = blockIndexOf(segment.source);
             if (blockIndex !== null) {
-                predictions.set(blockIndex, { label: segment.type, hidden: segment.visibility === 'hide' });
+                bucketFor(mimePartOf(segment.source) ?? '').set(blockIndex, { label: segment.type, hidden: segment.visibility === 'hide' });
             }
         }
+        const ordered = new Map([...predictions].map(([part, bucket]) => [part, [...bucket.keys()].sort((a, b) => a - b)]));
 
-        // Segments start at a block index and run to the next one, so fill forward.
-        const ordered = [...predictions.keys()].sort((a, b) => a - b);
-        const lookup = (index: number): { label: Label; hidden: boolean } | null => {
+        // Segments start at a block index and run to the next one, so fill forward within the part.
+        const lookup = (part: string | null, index: number): { label: Label; hidden: boolean } | null => {
+            // An annotation with no recorded part matches whichever part the output actually used,
+            // which for a single section message is the only one there is.
+            const key = part !== null && predictions.has(part) ? part : (predictions.keys().next().value ?? '');
+            const starts = ordered.get(key) ?? [];
             let best: number | null = null;
-            for (const start of ordered) {
+            for (const start of starts) {
                 if (start <= index) {
                     best = start;
                 } else {
                     break;
                 }
             }
-            return best === null ? null : (predictions.get(best) ?? null);
+            return best === null ? null : (predictions.get(key)?.get(best) ?? null);
         };
 
         const first = references[0];
@@ -220,7 +240,7 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
             groupBy === 'lang' ? (first?.lang ?? 'unknown') : groupBy === 'reply-style' ? (first?.reply_style ?? 'unknown') : (first?.client ?? 'unknown');
 
         for (const item of references) {
-            const prediction = lookup(item.block_index);
+            const prediction = lookup(item.mime_part, item.block_index);
             rows.push({
                 path: relPath,
                 blockIndex: item.block_index,

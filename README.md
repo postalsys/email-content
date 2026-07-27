@@ -371,19 +371,24 @@ a single spam message of machine generated word salad is excluded. That is the p
 
 | property | measured |
 | --- | ---: |
-| block label agreement | 79.8% |
+| block label agreement | 80.0% |
 | new content characters retained | **100.0%** |
 | new content blocks retained | **100.0%** |
 | hidden content genuinely history | 99.4% |
-| reply history correctly hidden | 60.3% |
+| reply history correctly hidden | 60.7% |
 | messages losing all new content | 0 |
 | messages losing an inline answer | 0 |
 
 Not one character the reference considers newly written is hidden, across 452 messages and 206,368
 characters of new content.
 
-Per label F1: REPLY_HISTORY 90.4, FORWARDED_CONTENT 81.5, NEW_CONTENT 70.1, SIGNATURE 48.8,
+Per label F1: REPLY_HISTORY 90.6, FORWARDED_CONTENT 79.8, NEW_CONTENT 70.1, SIGNATURE 48.8,
 INLINE_QUOTE 35.9, DISCLAIMER 30.1.
+
+Recall is the number to read here, not F1. Precision is measured against a reference that labels
+every block, while the extractor deliberately leaves anything it cannot anchor visible, so an honest
+"I am not sure" scores as a miss. `NEW_CONTENT` recall is 96.6 percent and `REPLY_HISTORY` recall is
+84.7 percent.
 
 With thread history available the numbers are materially better than the aggregate suggests, and a
 chat application always has the thread it is rendering:
