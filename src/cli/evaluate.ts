@@ -6,9 +6,10 @@
  * a change to the rules is actually measured instead of being compared against its own past
  * output.
  *
- * The reference here is LLM produced. It is treated as a reference, not as truth: two capable
- * models agree with each other on about 80 percent of blocks, so a number in the high nineties
- * would indicate a measurement problem, not a solved task.
+ * The reference here is LLM produced. It is treated as a reference, not as truth. Two strong
+ * models given identical input agree on 98.6 percent of blocks under the current conventions
+ * (docs/annotation.md), so that is the effective ceiling; the earlier 80 percent figure came from
+ * pairing a strong model with a weak one and measured the weak model, not annotation noise.
  */
 
 import fs from 'node:fs';
@@ -87,10 +88,12 @@ function renderReport(report: EvaluationReport, title: string): string {
 
     if (report.byGroup.length > 1) {
         out.push('BY GROUP');
-        out.push('  group                     blocks  agreement  new content retained');
+        out.push('  group                     blocks  agreement  new content retained  history hidden');
         for (const group of report.byGroup.slice(0, 15)) {
             out.push(
-                `  ${group.group.padEnd(24)} ${String(group.blocks).padStart(6)} ${pct(group.agreement).padStart(10)} ${pct(group.newContentCharRecall).padStart(21)}`
+                `  ${group.group.padEnd(24)} ${String(group.blocks).padStart(6)} ${pct(group.agreement).padStart(10)} ${pct(group.newContentCharRecall).padStart(21)} ${pct(
+                    group.historyHiddenShare
+                ).padStart(15)}`
             );
         }
         out.push('');
@@ -107,6 +110,7 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
     }
 
     const model = flagString(args, 'model', 'gpt-5.6-sol');
+    const promptVersion = flagString(args, 'prompt-version', '');
     const useHistory = flagBool(args, 'history', false);
     const groupBy = flagString(args, 'group-by', 'client');
     const limit = flagNonNegativeInt(args, 'limit', 0);
@@ -123,18 +127,25 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
     }
 
     // Latest annotation per (path, block) for the chosen model, so re-annotated messages do not
-    // count twice.
+    // count twice. An explicit --prompt-version pins the reference to labels made under one
+    // convention; without it, the newest label per block wins, whatever prompt produced it, and
+    // messages labelled only under an older convention are still included. The annotation guide's
+    // rule that runs made under different conventions must never be silently compared is the
+    // reason the flag exists; use it whenever more than one prompt version is present.
+    const versionClause = promptVersion ? ' AND r.prompt_version = ?' : '';
+    const versionClauseInner = promptVersion ? ' AND r2.prompt_version = ?' : '';
+    const params: string[] = promptVersion ? [model, promptVersion, promptVersion] : [model];
     const reference = store.query<ReferenceRow>(
         `SELECT a.path, a.block_index, a.mime_part, a.label, a.char_count, m.client, m.lang, m.reply_style
          FROM annotations a
          JOIN annotation_runs r ON r.id = a.run_id
          JOIN messages m ON m.path = a.path
-         WHERE r.model = ? AND a.source = 'llm'
+         WHERE r.model = ? AND a.source = 'llm'${versionClause}
            AND a.id = (SELECT MAX(a2.id) FROM annotations a2
                        JOIN annotation_runs r2 ON r2.id = a2.run_id
-                       WHERE a2.path = a.path AND a2.block_index = a.block_index AND r2.model = r.model)
+                       WHERE a2.path = a.path AND a2.block_index = a.block_index AND r2.model = r.model${versionClauseInner})
          ORDER BY a.path, a.block_index`,
-        model
+        ...params
     );
 
     if (!reference.length) {
@@ -172,7 +183,7 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
             continue;
         }
 
-        let historyDocuments;
+        let historyDocuments: Awaited<ReturnType<NonNullable<typeof resolver>['resolve']>> | undefined;
         if (resolver) {
             try {
                 const message = await parseMessage(raw);
@@ -237,7 +248,15 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
 
         const first = references[0];
         const group =
-            groupBy === 'lang' ? (first?.lang ?? 'unknown') : groupBy === 'reply-style' ? (first?.reply_style ?? 'unknown') : (first?.client ?? 'unknown');
+            groupBy === 'history'
+                ? historyDocuments?.length
+                    ? 'history available'
+                    : 'history unavailable'
+                : groupBy === 'lang'
+                  ? (first?.lang ?? 'unknown')
+                  : groupBy === 'reply-style'
+                    ? (first?.reply_style ?? 'unknown')
+                    : (first?.client ?? 'unknown');
 
         for (const item of references) {
             const prediction = lookup(item.mime_part, item.block_index);

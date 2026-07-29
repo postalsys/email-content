@@ -17,6 +17,19 @@ email-content annotate --sample 60 --model gpt-5.6-sol
 email-content disagreements --direction expensive
 ```
 
+Re-labelling after a convention change works on the same messages, not a fresh sample. Export the
+paths the old reference covers, annotate them under the new prompt version, and pin evaluations to
+one convention:
+
+```bash
+email-content annotate --paths data/relabel-paths.txt --model gpt-5.6-sol
+email-content evaluate --model gpt-5.6-sol --prompt-version annotate-v4 --history
+email-content disagreements --model gpt-5.6-sol --prompt-version annotate-v4
+```
+
+Resume state is scoped per prompt version, so bumping `PROMPT_VERSION` makes `annotate` treat every
+message as unlabelled again; `--resume false` is only needed to redo labels within one version.
+
 The annotator sits on top of the existing pipeline rather than replacing any of it:
 
 1. The message is parsed and segmented by the ordinary deterministic pipeline.

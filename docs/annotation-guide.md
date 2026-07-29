@@ -39,6 +39,15 @@ they forwarded on purpose. Footers, greetings and signatures exist inside all of
 
 The test is "which message does this block belong to?", never "what kind of text is this?".
 
+Boundary lines a client inserts follow the same test by convention: an attribution line, a forward
+marker or a separator rule belongs to the region it introduces. "On Friday, Alice wrote:" is
+`REPLY_HISTORY` and "---------- Forwarded message ----------" is `FORWARDED_CONTENT`, even though
+this sender's client generated both lines in this message.
+
+When regions nest, ask which message attached the block. A forward that appears inside quoted
+history is `REPLY_HISTORY`: the forwarding was done by the earlier correspondent, not by this
+sender. A forward marker in this message's own text opens `FORWARDED_CONTENT`.
+
 This matters because the extractor hides regions, not sentences. A footer inside history is hidden
 along with the history around it, and labelling it `DISCLAIMER` would split a region that is
 structurally one thing.
@@ -53,21 +62,30 @@ sender wrote**:
 - company registration, VAT numbers, registered office addresses
 - unsubscribe and preference footers
 - "powered by" and provider branding
-- standing promotional footers repeated on every notification from a service
+- recognisably templated promotional or navigational footers: subscribe invitations, app download
+  links, social media links, help and support pointers, and similar service boilerplate
+
+The last item is judged by shape, deliberately. An annotator sees one message at a time and cannot
+check whether a footer repeats across notifications, so "repeats on every message" is not a usable
+test; "reads as the service's template rather than this message's content" is.
 
 The reasoning is the reader's, not the lawyer's: in a chat interface all of it is the same thing,
 boilerplate that repeats on every message and is never the point of this one.
 
-**The guard: if the boilerplate is the whole message, it is `NEW_CONTENT`.** A newsletter is not a
-disclaimer with nothing attached to it. When there is no other content, the boilerplate _is_ the
-content. This mirrors the extractor's own invariant that a message must never come out as nothing
-but its footer.
+**The guard: if the message contains no authored content at all outside the boilerplate, the
+boilerplate is `NEW_CONTENT`.** A newsletter is not a disclaimer with nothing attached to it. When
+there is no other content, the boilerplate _is_ the content. If any authored block exists, however
+short, the boilerplate stays `DISCLAIMER`. Judge from the blocks shown; a truncated message is
+judged from what is visible. This mirrors the extractor's own invariant that a message must never
+come out as nothing but its footer.
 
 ## The labels
 
 ### NEW_CONTENT
 
-Text the sender wrote themselves in this message. **The default when unsure.**
+Text the sender wrote themselves in this message. **The default when torn between visible labels**,
+meaning `NEW_CONTENT`, `INLINE_QUOTE`, `SIGNATURE` or `DISCLAIMER`. Doubt about hiding is
+`UNKNOWN`'s territory; see below.
 
 Includes text that merely resembles email structure: a support message explaining which headers to
 include, a pasted excerpt the sender is discussing, a quoted line the sender typed by hand.
@@ -140,8 +158,10 @@ As defined in Rule 2 above.
 
 ### UNKNOWN
 
-Use when you genuinely cannot tell. **Prefer this over guessing `REPLY_HISTORY`**, because
-`REPLY_HISTORY` is the only label that hides content.
+Use when you genuinely cannot tell **which message a block belongs to**. When torn between visible
+labels, do not use `UNKNOWN`: choose `NEW_CONTENT`. When the doubt is about hiding, meaning
+`REPLY_HISTORY` is one of the candidates and nothing structural settles it, **prefer `UNKNOWN` over
+guessing `REPLY_HISTORY`**, because `REPLY_HISTORY` is the only label that hides content.
 
 ## The cost of errors is not symmetric
 
@@ -151,11 +171,12 @@ second.**
 
 When torn:
 
-| between                                | choose       |
-| -------------------------------------- | ------------ |
-| NEW_CONTENT and REPLY_HISTORY          | NEW_CONTENT  |
-| INLINE_QUOTE and REPLY_HISTORY         | INLINE_QUOTE |
-| anything and UNKNOWN, genuinely unsure | UNKNOWN      |
+| between                                             | choose       |
+| --------------------------------------------------- | ------------ |
+| NEW_CONTENT and REPLY_HISTORY                       | NEW_CONTENT  |
+| INLINE_QUOTE and REPLY_HISTORY                      | INLINE_QUOTE |
+| two visible labels                                  | NEW_CONTENT  |
+| cannot tell at all which message a block belongs to | UNKNOWN      |
 
 ## Worked examples
 
@@ -212,8 +233,9 @@ Changing this document changes labels. Bump `PROMPT_VERSION` in `src/annotate/pr
 the version with every annotation, so runs made under different conventions are never silently
 compared. Annotations already store `prompt_version` for this reason.
 
-| version       | change                                                                                                            |
-| ------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `annotate-v1` | first prompt, no quote depth shown to the annotator                                                               |
-| `annotate-v2` | quote depth shown; signatures inside quotes are history                                                           |
-| `annotate-v3` | this guide: Rule 1 generalised to all footer types, Rule 2 defines DISCLAIMER breadth and its whole-message guard |
+| version       | change                                                                                                                                                                                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `annotate-v1` | first prompt, no quote depth shown to the annotator                                                                                                                                                                                                                                  |
+| `annotate-v2` | quote depth shown; signatures inside quotes are history                                                                                                                                                                                                                              |
+| `annotate-v3` | this guide: Rule 1 generalised to all footer types, Rule 2 defines DISCLAIMER breadth and its whole-message guard                                                                                                                                                                    |
+| `annotate-v4` | depth 1 follows the INLINE_QUOTE test instead of being declared history, resolving a contradiction between the prompt and this guide; boundary markers and nested forwards settled under Rule 1; promotional footers judged by shape; whole-message guard and UNKNOWN made decidable |

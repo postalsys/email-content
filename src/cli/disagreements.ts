@@ -89,13 +89,30 @@ export async function disagreementsCommand(args: ParsedArgs): Promise<number> {
         return 2;
     }
 
+    // Without a filter every source, model and prompt version mixes into one list, and a block
+    // re-annotated under a newer convention shows up twice with both verdicts. Pinning the model
+    // and prompt version keeps an adjudication pass inside one convention.
     const runFilter = flagNonNegativeInt(args, 'run', 0);
+    const modelFilter = flagString(args, 'model', '');
+    const versionFilter = flagString(args, 'prompt-version', '');
+    const joins: string[] = [];
+    const params: (string | number)[] = [];
+    if (modelFilter) {
+        joins.push('r.model = ?');
+        params.push(modelFilter);
+    }
+    if (versionFilter) {
+        joins.push('r.prompt_version = ?');
+        params.push(versionFilter);
+    }
+    const runJoin = joins.length ? `AND run_id IN (SELECT r.id FROM annotation_runs r WHERE ${joins.join(' AND ')})` : '';
     const rows = store.query<Row>(
         `SELECT path, block_index, representation, label, confidence, baseline_label, baseline_conf, baseline_reasons, char_count
          FROM annotations
-         WHERE ${clause} ${runFilter ? 'AND run_id = ' + runFilter : ''}
+         WHERE ${clause} ${runFilter ? 'AND run_id = ' + runFilter : ''} ${runJoin}
          ORDER BY char_count DESC
          LIMIT ?`,
+        ...params,
         limit
     );
 

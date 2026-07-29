@@ -121,7 +121,9 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
         return 2;
     }
 
-    const already = flagBool(args, 'resume', true) ? annotatedPaths(store, 'llm', model) : new Set<string>();
+    // Resume is scoped to the current prompt version: labels made under an older prompt are
+    // different data, and treating them as already-done made a version bump silently no-op.
+    const already = flagBool(args, 'resume', true) ? annotatedPaths(store, 'llm', model, PROMPT_VERSION) : new Set<string>();
 
     // Deterministic selection: hash the path with the seed and take the lowest values, so the same
     // seed always picks the same messages regardless of database order.
@@ -134,10 +136,26 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
         .map(row => row.path)
         .filter(candidate => !already.has(candidate));
 
+    // An explicit path list bypasses sampling. Re-labelling under a new prompt version has to hit
+    // exactly the messages the old reference covers, or the two references stop being comparable.
+    const pathsFile = flagString(args, 'paths', '');
+
     const strategy = flagString(args, 'strategy', 'stratified');
     let selected: string[];
     let strata = new Map<string, string>();
-    if (strategy === 'stratified') {
+    if (pathsFile) {
+        const known = new Set(candidates);
+        const listed = fs
+            .readFileSync(pathsFile, 'utf8')
+            .split('\n')
+            .map(line => line.trim())
+            .filter(Boolean);
+        selected = listed.filter(item => known.has(item));
+        const skipped = listed.length - selected.length - listed.filter(item => already.has(item)).length;
+        if (skipped > 0) {
+            process.stderr.write(`${skipped} listed path(s) are not annotatable candidates and were skipped\n`);
+        }
+    } else if (strategy === 'stratified') {
         const { stratifiedSample } = await import('../corpus/sample');
         const sample = stratifiedSample(store, {
             count: limit,
@@ -174,7 +192,9 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
         process.stderr.write(`skipping ${already.size} already annotated by this model\n`);
     }
 
-    const runId = startAnnotationRun(store, { source: 'llm', model, promptVersion: PROMPT_VERSION });
+    // A dry run must leave no trace in the database: an empty annotation_runs row looks like an
+    // interrupted run to anything auditing the run history.
+    const runId = dryRun ? -1 : startAnnotationRun(store, { source: 'llm', model, promptVersion: PROMPT_VERSION });
 
     let failures = 0;
     let blockCount = 0;
@@ -242,14 +262,16 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
         }
     });
 
-    writeAnnotations(store, runId, rows);
-    finishAnnotationRun(store, runId, {
-        messages: messageCount,
-        blocks: blockCount,
-        failures,
-        promptTokens: client?.usage.promptTokens ?? 0,
-        completionTokens: client?.usage.completionTokens ?? 0
-    });
+    if (!dryRun) {
+        writeAnnotations(store, runId, rows);
+        finishAnnotationRun(store, runId, {
+            messages: messageCount,
+            blocks: blockCount,
+            failures,
+            promptTokens: client?.usage.promptTokens ?? 0,
+            completionTokens: client?.usage.completionTokens ?? 0
+        });
+    }
 
     const elapsed = (Date.now() - started) / 1000;
     process.stderr.write(`done in ${elapsed.toFixed(1)}s, ${messageCount} messages, ${blockCount} blocks, ${failures} failures\n`);

@@ -384,46 +384,52 @@ a single spam message of machine generated word salad is excluded. That is the p
 
 | property | measured |
 | --- | ---: |
-| block label agreement | 80.9% |
+| block label agreement | 83.7% |
 | new content characters retained | **100.0%** |
 | new content blocks retained | **100.0%** |
-| hidden content genuinely history | 99.4% |
-| reply history correctly hidden | 60.7% |
+| hidden content genuinely history | 99.8% |
+| reply history correctly hidden | 63.4% |
 | messages losing all new content | 0 |
 | messages losing an inline answer | 0 |
 
-Not one character the reference considers newly written is hidden, across 452 messages and 206,368
+Not one character the reference considers newly written is hidden, across 452 messages and 221,256
 characters of new content.
 
-Per label F1: REPLY_HISTORY 91.3, FORWARDED_CONTENT 79.8, NEW_CONTENT 71.8, SIGNATURE 48.8,
-INLINE_QUOTE 35.9, DISCLAIMER 30.1.
+Per label F1: REPLY_HISTORY 93.3, FORWARDED_CONTENT 82.4, NEW_CONTENT 75.4, SIGNATURE 52.0,
+INLINE_QUOTE 36.9, DISCLAIMER 33.7.
 
 Recall is the number to read here, not F1. Precision is measured against a reference that labels
 every block, while the extractor deliberately leaves anything it cannot anchor visible, so an honest
-"I am not sure" scores as a miss. `NEW_CONTENT` recall is 96.6 percent and `REPLY_HISTORY` recall is
-84.7 percent.
+"I am not sure" scores as a miss. `REPLY_HISTORY` recall is 89.5 percent. `NEW_CONTENT` label recall
+is 92.7 percent, and the difference from the 100 percent character retention is entirely blocks the
+extractor labels `UNKNOWN`, which are always shown: an honest "not sure" costs label agreement,
+never content.
 
 With thread history available the numbers are materially better than the aggregate suggests, and a
 chat application always has the thread it is rendering:
 
 | | messages | agreement | history hidden |
 | --- | ---: | ---: | ---: |
-| history available | 305 | 85.9% | 64.7% |
-| history unavailable | 147 | 64.9% | 37.0% |
+| history available | 305 | 88.3% | 66.3% |
+| history unavailable | 147 | 69.8% | 45.9% |
 
 ## Limitations
 
-- **It still errs towards showing too much.** Around 40 percent of reply history remains displayed.
+- **It still errs towards showing too much.** Around 37 percent of reply history remains displayed.
   That is the cheap direction of error and it is deliberate, but it is the largest remaining gap.
-- **Disclaimer recall is 18.1 percent** at 87.8 percent precision. The generic notification footer
+- **Disclaimer recall is 20.9 percent** at 86.4 percent precision. The generic notification footer
   shapes are covered; what remains is per-sender templates, which hand written rules cannot reach
   without overfitting to one vendor. This is the clearest case for a learned model.
-- **Signature recall is 36.7 percent** at 73.1 percent precision. Two independent signals are
+- **Signature recall is 39.6 percent** at 75.6 percent precision. Two independent signals are
   required, such as a closing greeting plus contact details, or the sender's own name plus either.
-- **INLINE_QUOTE precision is 27.2 percent.** Blocks wrongly called inline quote stay visible, so
-  this costs tidiness, not content.
-- **Outlook remains the weakest client**, around 62 percent against 92 percent for Gmail and Apple
-  Mail.
+- **INLINE_QUOTE precision is 27.9 percent.** Blocks wrongly called inline quote stay visible, so
+  this costs tidiness, not content. Under the settled depth-1 convention this is now a genuine
+  disagreement with the reference, not a labelling artefact: the extractor treats any quoted run
+  with authored text after it as answered, and the reference frequently reads the same run as a
+  trailing copy.
+- **Outlook desktop remains the weakest recognised client**, around 70 percent against 92 percent
+  for Gmail and Apple Mail; unrecognised clients sit at 68 percent. Outlook Web reached 84 percent
+  once its embedded header blocks were detected across sibling paragraphs.
 - **No learned model.** This is the deterministic baseline. The labelled data, a settled labelling
   convention and the evaluation harness all exist to train one.
 

@@ -13,7 +13,7 @@
  *      is rejected by the API rather than parsed hopefully at this end.
  */
 
-export const PROMPT_VERSION = 'annotate-v3';
+export const PROMPT_VERSION = 'annotate-v4';
 
 export const SYSTEM_PROMPT = `You label blocks of an email message so a chat application can decide what to show.
 
@@ -23,8 +23,8 @@ block index you are given. Never return text, only indices and labels.
 LABELS
 
 NEW_CONTENT
-  Text the sender wrote themselves in this message. This is the default when unsure between
-  NEW_CONTENT and anything else.
+  Text the sender wrote themselves in this message. This is the default when torn between visible
+  labels: NEW_CONTENT, INLINE_QUOTE, SIGNATURE or DISCLAIMER.
 
 INLINE_QUOTE
   Old text the sender quoted deliberately in order to answer it here, point by point. The giveaway
@@ -49,14 +49,20 @@ DISCLAIMER
   Boilerplate attached by a system, gateway or template independently of what the sender wrote:
   confidentiality and liability notices, virus scanning notices, company registration and VAT
   numbers, registered office addresses, unsubscribe and preference footers, "powered by" branding,
-  and standing promotional footers that repeat on every notification from a service.
+  and recognisably templated promotional or navigational footers: subscribe invitations, app
+  download links, social media links, help and support pointers, and similar service boilerplate.
+  Judge by shape, since you see one message at a time and cannot check whether it repeats.
 
-  Guard: if the boilerplate is the whole message, label it NEW_CONTENT. A newsletter is not a
-  disclaimer with nothing attached to it. When there is no other content, the boilerplate is the
-  content.
+  Guard: if the message contains no authored content at all outside the boilerplate, the
+  boilerplate is the content: label it NEW_CONTENT. A newsletter is not a disclaimer with nothing
+  attached to it. If any authored block exists, however short, the boilerplate stays DISCLAIMER.
+  Judge from the blocks you are shown.
 
 UNKNOWN
-  Use when you genuinely cannot tell. Prefer this over guessing REPLY_HISTORY.
+  Use when you genuinely cannot tell which message a block belongs to. When torn between visible
+  labels, do not use UNKNOWN: choose NEW_CONTENT. When the doubt is about hiding, meaning
+  REPLY_HISTORY is one of the candidates and nothing structural settles it, prefer UNKNOWN over
+  guessing REPLY_HISTORY.
 
 HOW TO DECIDE
 
@@ -70,6 +76,7 @@ is purpose:
 
 Quote characters such as ">" are a hint, not proof. Some clients embed the previous message with no
 quote markers at all, as plain paragraphs after an attribution line: that is still REPLY_HISTORY.
+A hard wrapped quoted line whose continuation lost its quote marker is still part of the quote.
 Some senders paste text that merely looks like an email; that is NEW_CONTENT.
 
 QUOTE DEPTH
@@ -78,11 +85,15 @@ Each block is marked with its quote depth, exactly as the message shows it. Dept
 was not quoted. Depth 1 means it was quoted once, depth 2 means it was quoted inside a quote, and so
 on. Depth is structural evidence, not a verdict.
 
-Long threads nest: depth 1 is the message being replied to, depth 2 is the one before that. In a
-nested thread the sender's own new text is almost always at depth 0, and everything at depth 1 or
-deeper is history, including greetings, thanks, questions and sign-offs. Text reading like a fresh
-personal message is still REPLY_HISTORY if it is quoted, because someone wrote it in an earlier
-message, not in this one.
+Long threads nest: depth 1 is the message being replied to, depth 2 is the one before that. Text at
+depth 2 or deeper was already quoted by someone else before this conversation reached the sender,
+so it is always history, including greetings, thanks, questions and sign-offs found there. Text
+reading like a fresh personal message is still REPLY_HISTORY at depth 2 or deeper, because someone
+wrote it in an earlier message, not in this one.
+
+Depth 1 is where deliberate quoting happens: the sender quotes the person they are replying to.
+For depth 1, apply the INLINE_QUOTE versus REPLY_HISTORY test above: answered below means
+INLINE_QUOTE, an uninterrupted copy running to the end of the message means REPLY_HISTORY.
 
 REGION WINS OVER CONTENT TYPE
 
@@ -100,6 +111,14 @@ always "which message does this block belong to?".
 
 This applies to every footer type, not just signatures. A confidentiality notice sitting inside a
 forward is FORWARDED_CONTENT, not DISCLAIMER.
+
+Boundary lines a client inserts, such as an attribution line, a forward marker or a separator rule,
+belong to the region they introduce: "On <date>, <person> wrote:" is REPLY_HISTORY, and
+"---------- Forwarded message ----------" is FORWARDED_CONTENT.
+
+When regions nest, ask which message attached the block. A forward that appears inside quoted
+history is REPLY_HISTORY: the forwarding was done by the earlier correspondent, not by this sender.
+A forward marker in this message's own text opens FORWARDED_CONTENT.
 
 COST OF ERRORS
 

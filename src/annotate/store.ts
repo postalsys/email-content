@@ -97,14 +97,27 @@ export function writeAnnotations(store: CorpusStore, runId: number, rows: readon
     });
 }
 
-/** Paths already annotated by this source and model, so a run can resume. */
-export function annotatedPaths(store: CorpusStore, source: string, model: string | null): Set<string> {
-    const rows = model
-        ? store.query<{ path: string }>(
-              'SELECT DISTINCT a.path AS path FROM annotations a JOIN annotation_runs r ON r.id = a.run_id WHERE a.source = ? AND r.model = ?',
-              source,
-              model
-          )
-        : store.query<{ path: string }>('SELECT DISTINCT path FROM annotations WHERE source = ?', source);
+/**
+ * Paths already annotated by this source, model and prompt version, so a run can resume.
+ *
+ * The prompt version is part of the key on purpose. Labels made under different prompt versions
+ * are different data, and before this was keyed a PROMPT_VERSION bump followed by a resumed run
+ * skipped every message the model had ever labelled and silently produced nothing new.
+ */
+export function annotatedPaths(store: CorpusStore, source: string, model: string | null, promptVersion: string | null = null): Set<string> {
+    const clauses = ['a.source = ?'];
+    const params: string[] = [source];
+    if (model) {
+        clauses.push('r.model = ?');
+        params.push(model);
+    }
+    if (promptVersion) {
+        clauses.push('r.prompt_version = ?');
+        params.push(promptVersion);
+    }
+    const rows = store.query<{ path: string }>(
+        `SELECT DISTINCT a.path AS path FROM annotations a JOIN annotation_runs r ON r.id = a.run_id WHERE ${clauses.join(' AND ')}`,
+        ...params
+    );
     return new Set(rows.map(row => row.path));
 }

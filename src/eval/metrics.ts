@@ -82,7 +82,7 @@ export interface EvaluationReport {
     confusion: Map<string, number>;
     retention: RetentionMetrics;
     catastrophic: CatastrophicCounts;
-    byGroup: { group: string; blocks: number; agreement: number; newContentCharRecall: number }[];
+    byGroup: { group: string; blocks: number; agreement: number; newContentCharRecall: number; historyHiddenShare: number }[];
 }
 
 function labelMetrics(rows: readonly LabelledBlock[], label: Label): LabelMetrics {
@@ -112,9 +112,6 @@ function labelMetrics(rows: readonly LabelledBlock[], label: Label): LabelMetric
         f1: precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0
     };
 }
-
-/** Labels the reference considers authored by the sender of this message. */
-const AUTHORED: ReadonlySet<Label> = new Set<Label>(['NEW_CONTENT', 'SIGNATURE']);
 
 function retention(rows: readonly LabelledBlock[]): RetentionMetrics {
     let newContentChars = 0;
@@ -197,7 +194,12 @@ function catastrophic(rows: readonly LabelledBlock[]): CatastrophicCounts {
         if (!visible.length && blocks.some(block => block.charCount > 0)) {
             counts.emptyExtraction++;
         }
-        if (visible.length && visible.every(block => AUTHORED.has(block.reference) && block.reference !== 'NEW_CONTENT')) {
+        // A footer is a signature or a disclaimer, matching the benchmark's structural check, but
+        // only a message that had something else to show can lose its point. An empty reply whose
+        // entire authored content is its signature comes out as footer plus hidden history, and
+        // that is the correct extraction, not a catastrophe; six such messages in the reference
+        // set started tripping this counter the moment history hiding improved.
+        if (authored.length && visible.length && visible.every(block => block.reference === 'SIGNATURE' || block.reference === 'DISCLAIMER')) {
             counts.onlyFooterRetained++;
         }
         if (blocks.some(block => block.reference === 'FORWARDED_CONTENT' && block.hidden)) {
@@ -253,12 +255,16 @@ export function evaluate(rows: readonly LabelledBlock[]): EvaluationReport {
         retention: retention(rows),
         catastrophic: catastrophic(rows),
         byGroup: [...groups]
-            .map(([group, list]) => ({
-                group,
-                blocks: list.length,
-                agreement: list.filter(row => row.reference === row.predicted).length / list.length,
-                newContentCharRecall: retention(list).newContentCharRecall
-            }))
+            .map(([group, list]) => {
+                const kept = retention(list);
+                return {
+                    group,
+                    blocks: list.length,
+                    agreement: list.filter(row => row.reference === row.predicted).length / list.length,
+                    newContentCharRecall: kept.newContentCharRecall,
+                    historyHiddenShare: 1 - kept.historyStillVisibleShare
+                };
+            })
             .sort((a, b) => b.blocks - a.blocks)
     };
 }
