@@ -19,9 +19,10 @@
         {
             "id": "x_wrote_trailing",
             "lang": "en",
+            "comment": "Attribution without an On prefix, such as 'Bob Smith wrote:'. The lookaheads reject first person prose like 'As I wrote:' or 'Like I wrote:', which is the sender talking about themselves, not a client inserted attribution.",
             "strength": 0.8,
             "flags": "i",
-            "pattern": "^\\s*.{3,200}?\\bwrote\\s*:\\s*$"
+            "pattern": "^\\s*(?!(as|like|just as|so|and|but|because|remember)\\b)(?!I\\b).{3,200}?\\bwrote\\s*:\\s*$"
         },
         {
             "id": "at_x_wrote",
@@ -96,16 +97,18 @@
         {
             "id": "den_x_skrev_sv",
             "lang": "sv",
+            "comment": "Two real shapes: 'Den <date> skrev <name>:' with the name after the verb, and the bare 'X skrev:' form matching the Estonian and Finnish family. The old '(Den|.{0,60})' alternation made Den dead and accepted any line with skrev anywhere before a colon.",
             "strength": 0.95,
             "flags": "i",
-            "pattern": "^\\s*(Den|.{0,60})\\s*.{3,200}?\\bskrev\\s*.{0,80}:\\s*$"
+            "pattern": "^\\s*(Den\\s+.{3,200}?\\bskrev\\s+.{0,80}:|.{3,200}?\\bskrev\\s*:)\\s*$"
         },
         {
             "id": "x_pisal_ru",
             "lang": "ru",
+            "comment": "The lookahead rejects first person prose such as 'как я писал:', which is the sender referring to themselves, not an attribution.",
             "strength": 0.95,
             "flags": "i",
-            "pattern": "^\\s*.{3,200}?(писал|написал)\\s*.{0,40}:\\s*$"
+            "pattern": "^\\s*(?!(как|я)\\s).{3,200}?(писал|написал)\\s*.{0,40}:\\s*$"
         },
         {
             "id": "date_addr_colon",
@@ -127,13 +130,6 @@
             "strength": 0.95,
             "flags": "i",
             "pattern": "^\\s*-{2,}\\s*(Reply Message|Antwort|Svar)\\s*-{2,}\\s*$"
-        },
-        {
-            "id": "outlook_underscore_rule",
-            "lang": "*",
-            "strength": 0.6,
-            "flags": "",
-            "pattern": "^_{10,}\\s*$"
         }
     ]
 }

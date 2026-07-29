@@ -66,6 +66,24 @@
             "prevalence": 0.16
         },
         {
+            "id": "outlook_signature",
+            "client": "outlook-desktop",
+            "role": "signature",
+            "strength": 0.9,
+            "selector": "div#Signature",
+            "prevalence": 0.02,
+            "comment": "Outlook desktop and Outlook Web both wrap the composed signature in an element with id Signature. Only Gmail, Thunderbird and Proton carried a signature selector before this."
+        },
+        {
+            "id": "outlook_mobile_signature",
+            "client": "outlook-mobile",
+            "role": "signature",
+            "strength": 0.9,
+            "selector": "div.ms-outlook-mobile-signature",
+            "prevalence": 0.005,
+            "comment": "Outlook mobile marks its Get Outlook for iOS/Android footer with this class."
+        },
+        {
             "id": "outlook_word_section",
             "client": "outlook-desktop",
             "role": "hint",

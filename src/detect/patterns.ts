@@ -130,14 +130,23 @@ function compileLinePatterns(input: unknown, invalid: string[]): LinePattern[] {
             invalid.push(String(item.id ?? 'unnamed'));
             continue;
         }
+        // A strength outside [0, 1] would outrank every structural anchor, and the g and y flags
+        // make the shared regex object stateful, so test() alternates results across lines. Both
+        // are treated the same as a regex that does not compile.
+        const strength = typeof item.strength === 'number' ? item.strength : 0.5;
+        const flags = typeof item.flags === 'string' ? item.flags : '';
+        if (strength < 0 || strength > 1 || !Number.isFinite(strength) || /[gy]/.test(flags)) {
+            invalid.push(id);
+            continue;
+        }
         try {
             out.push({
                 id,
                 lang: typeof item.lang === 'string' ? item.lang : undefined,
                 role: typeof item.role === 'string' ? item.role : undefined,
                 client: typeof item.client === 'string' ? item.client : undefined,
-                strength: typeof item.strength === 'number' ? item.strength : 0.5,
-                regex: new RegExp(source, typeof item.flags === 'string' ? item.flags : '')
+                strength,
+                regex: new RegExp(source, flags)
             });
         } catch {
             invalid.push(id);

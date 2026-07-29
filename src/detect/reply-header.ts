@@ -33,9 +33,15 @@ const MIN_FIELDS = 3;
  */
 const ORIGINATOR_VALUE = /(@[\w-]+\.[\w.-]+|<[^>]*@[^>]*>|mailto:|\[[^\]]*@[^\]]*\])/i;
 
-/** A date field carries something date shaped: a numeric date, a month name, or a clock time. */
+/**
+ * A date field carries something date shaped: a numeric date, a month name, or a clock time.
+ *
+ * The month stems cover the languages the quoted header field names already cover, because a Sent
+ * field whose value the date check cannot read contributes no date role, and the block then only
+ * qualifies through a subject field.
+ */
 const DATE_VALUE =
-    /(\d{1,4}[./-]\d{1,2}[./-]\d{1,4}|\b\d{1,2}:\d{2}\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\b|\b(esmaspäev|teisipäev|kolmapäev|neljapäev|reede|laupäev|pühapäev|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b)/i;
+    /(\d{1,4}[./-]\d{1,2}[./-]\d{1,4}|\b\d{1,2}:\d{2}\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|mon|tue|wed|thu|fri|sat|sun|maj|okt|sty|lut|kwi|cze|lip|sie|wrz|paz|lis|gru|tammi|helmi|maalis|huhti|touko|kesä|heinä|elo|syys|loka|marras|joulu)[a-zäö]*\.?\b|(^|\s)(янв|фев|мар|апр|ма[йя]|июн|июл|авг|сен|окт|ноя|дек)|\b(esmaspäev|teisipäev|kolmapäev|neljapäev|reede|laupäev|pühapäev|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b)/i;
 
 function valueOf(line: string): string {
     const colon = line.indexOf(':');

@@ -21,8 +21,13 @@ import { type BlockFeatures } from '../segment/types';
 /** Signatures beyond this many lines are almost always something else. */
 const MAX_SIGNATURE_LINES = 12;
 
-/** A signature block sits in the last part of the message. */
-const MIN_POSITION = 0.5;
+/**
+ * A signature sits after the sender's words, which in a reply with quoted history below can be
+ * early by character position, not late. The classifier's walk back from the authored region is
+ * what constrains location structurally; this gate only excludes the opening slice, where a
+ * contact card is the message rather than a sign-off.
+ */
+const MIN_POSITION = 0.1;
 
 export function detectSignatureDelimiter(line: string): Evidence | null {
     const patterns = loadPatterns();

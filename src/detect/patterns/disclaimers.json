@@ -39,15 +39,17 @@
         },
         {
             "id": "confidentiality_es",
+            "comment": "The bare word destinatario used to be an alternative on its own, so any Spanish sentence mentioning a recipient counted as a 0.9 disclaimer. The recipient reference now needs its boilerplate context.",
             "strength": 0.9,
             "flags": "i",
-            "pattern": "(Este mensaje .{0,60}confidencial|informaci.n confidencial|destinatario)"
+            "pattern": "(Este (mensaje|correo) .{0,60}confidencial|informaci.n confidencial|uso exclusivo de(l)? destinatario|si (usted )?no es el destinatario)"
         },
         {
             "id": "gdpr_notice",
+            "comment": "The bare token GDPR and the bare phrase privacy policy both appear in ordinary work prose, so each alternative now needs its footer context.",
             "strength": 0.7,
             "flags": "i",
-            "pattern": "(privacy (notice|policy)|processes? your personal data|GDPR|isikuandmete töötlemise)"
+            "pattern": "((see|view|read|review|check) (our|the) privacy (notice|policy)|privacy (notice|policy)\\s*[:|]|in accordance with (the )?(GDPR|General Data Protection Regulation)|process(es|ing)? (of )?your personal data|isikuandmete töötlemise)"
         },
         {
             "id": "company_registration",
@@ -57,15 +59,53 @@
         },
         {
             "id": "unsubscribe_footer",
+            "comment": "The bare word unsubscribe also appears in prose about mailing lists, so it only counts standing alone on its own line, which is the bare-link-text shape, or with its imperative footer context.",
             "strength": 0.8,
-            "flags": "i",
-            "pattern": "(unsubscribe|opt out of these emails|manage your (email )?preferences|loobu (uudiskirjast|teavitustest))"
+            "flags": "im",
+            "pattern": "(to unsubscribe|unsubscribe (from|at|here|now|at any time)|click here to unsubscribe|^\\s*unsubscribe\\s*\\.?\\s*$|if you (no longer |don'?t )?(wish|want) to (receive|get)|opt out of these emails|manage your (email )?preferences|loobu (uudiskirjast|teavitustest))"
         },
         {
             "id": "confidentiality_et",
             "strength": 0.9,
             "flags": "i",
             "pattern": "(Käesolev (e-?kiri|sõnum) .{0,60}(konfidentsiaal|asutusesisene)|kui te ei ole .{0,40}saaja)"
+        },
+        {
+            "id": "confidentiality_it",
+            "comment": "Italian, Portuguese, Dutch, Polish, Russian, Finnish and Scandinavian mail all had reply-header coverage but no disclaimer coverage at all. These are the standard legalese openings, same shape as the English and German entries.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(Le informazioni contenute .{0,60}(riservat|confidenzial)|Questo messaggio .{0,60}(riservat|confidenzial)|Se non siete il destinatario)"
+        },
+        {
+            "id": "confidentiality_pt",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(Esta mensagem .{0,60}confidencial|informa..o confidencial|n.o (é|e|for) o destinat.rio)"
+        },
+        {
+            "id": "confidentiality_nl",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(Dit bericht .{0,60}vertrouwelijk|De informatie .{0,60}vertrouwelijk|niet de beoogde ontvanger)"
+        },
+        {
+            "id": "confidentiality_pl",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(Ta wiadomo.. .{0,60}poufn|informacje poufne|nie jeste. .{0,40}adresatem)"
+        },
+        {
+            "id": "confidentiality_ru",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(сообщение .{0,60}конфиденциальн|конфиденциальную информацию|не являетесь .{0,40}(получателем|адресатом))"
+        },
+        {
+            "id": "confidentiality_fi_sv_da",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "(T.m. viesti .{0,60}luottamuksellinen|luottamuksellista tietoa|Detta meddelande .{0,60}konfidentiellt|Denne (e-?mail|meddelelse|melding) .{0,60}fortrolig)"
         },
         {
             "id": "automated_do_not_reply",
@@ -98,9 +138,9 @@
         {
             "id": "powered_by_footer",
             "strength": 0.7,
-            "flags": "i",
-            "comment": "Provider branding appended by the sending platform.",
-            "pattern": "(powered by [A-Z]|sent (via|with|using) [A-Z][\\w.]{2,}|delivered by [A-Z][\\w.]{2,})"
+            "flags": "m",
+            "comment": "Provider branding appended by the sending platform. Case sensitive on purpose: under the i flag the capital brand class matched any word, so prose like 'I sent via courier yesterday' counted as branding. The line anchor keeps it to the standalone footer shape.",
+            "pattern": "^\\s*([Pp]owered by|[Ss]ent (via|with|using)|[Dd]elivered by) [A-Z][\\w.'-]+.{0,40}$"
         },
         {
             "id": "support_contact_footer",
