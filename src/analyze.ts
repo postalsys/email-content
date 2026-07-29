@@ -136,11 +136,13 @@ function contentChars(blocks: readonly Block[]): number {
     return blocks.reduce((sum, block) => sum + block.content.length, 0);
 }
 
-function hasAnchor(blocks: readonly Block[]): boolean {
+function hasAnchor(blocks: readonly Block[], minAnchorStrength: number): boolean {
     return blocks.some(block =>
         block.evidence.some(
             evidence =>
-                evidence.kind === 'reply-anchor' || evidence.kind === 'forward-anchor' || (evidence.kind === 'quote-container' && evidence.strength >= 0.85)
+                evidence.kind === 'reply-anchor' ||
+                evidence.kind === 'forward-anchor' ||
+                (evidence.kind === 'quote-container' && evidence.strength >= minAnchorStrength)
         )
     );
 }
@@ -169,13 +171,13 @@ export function senderTokensFrom(from: string | null | undefined): string[] {
 /** Confidence assigned to anything the pipeline could not classify. Never 1, never 0. */
 const DEGRADED_CONFIDENCE = 0.5;
 
-function representationInfo(blocks: Block[], representation: 'text' | 'html', degraded: boolean): RepresentationInfo {
+function representationInfo(blocks: Block[], representation: 'text' | 'html', degraded: boolean, minAnchorStrength: number): RepresentationInfo {
     return {
         representation,
         blocks,
         contentChars: contentChars(blocks),
         // A representation that failed to segment has no evidence, so it has no anchors either.
-        hasAnchor: degraded ? false : hasAnchor(blocks),
+        hasAnchor: degraded ? false : hasAnchor(blocks, minAnchorStrength),
         degraded
     };
 }
@@ -468,7 +470,7 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
 
             if (sectionText.trim()) {
                 const blocks = segmentTextBlocks(sectionText, section.textPartId ?? 'TEXT').blocks;
-                textInfo = representationInfo(blocks, 'text', false);
+                textInfo = representationInfo(blocks, 'text', false, config.minAnchorStrength);
             }
             if (sectionHtml.trim()) {
                 const htmlPartId = section.htmlPartId ?? 'HTML';
@@ -476,7 +478,7 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
                 if (result.degraded) {
                     warnings.push({ code: 'html_parse_error', mimePart: htmlPartId });
                 }
-                htmlInfo = representationInfo(result.blocks, 'html', result.degraded);
+                htmlInfo = representationInfo(result.blocks, 'html', result.degraded, config.minAnchorStrength);
             }
             if (!textInfo && !htmlInfo) {
                 continue;

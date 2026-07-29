@@ -172,4 +172,73 @@ describe('html segmentation', () => {
             assert.ok(Array.isArray(blocks));
         }
     });
+
+    it('finds an embedded header block split across sibling paragraphs', () => {
+        // Outlook desktop emits each From/Sent/To/Subject field as its own <p class=MsoNormal>, so
+        // no single block holds the three roles the detector needs. The cross-block scan has to see
+        // the chain the way the plain text line scan does.
+        const outlook =
+            '<div>Thanks, will do.</div><hr>' +
+            '<p class=MsoNormal><b>From:</b> Bob &lt;bob@example.com&gt;</p>' +
+            '<p class=MsoNormal><b>Sent:</b> Monday, July 27, 2026 9:15 AM</p>' +
+            '<p class=MsoNormal><b>To:</b> Alice &lt;alice@example.com&gt;</p>' +
+            '<p class=MsoNormal><b>Subject:</b> Quarterly numbers</p>' +
+            '<p class=MsoNormal>Here are the numbers you asked for.</p>';
+        const { blocks } = segmentHtmlBlocks(outlook, '2');
+        const from = blocks.find(block => block.content.startsWith('From:'));
+        assert.equal(from?.kind, 'quoted_header_block');
+        assert.ok(from?.evidence.some(evidence => evidence.id === 'reply:quoted_header_block'));
+        const subject = blocks.find(block => block.content.startsWith('Subject:'));
+        assert.equal(subject?.kind, 'quoted_header_block');
+        // The body paragraph after the chain is not part of the header block.
+        const body = blocks.find(block => block.content.startsWith('Here are'));
+        assert.equal(body?.kind, 'paragraph');
+    });
+
+    it('does not mistake prose mentioning header fields for an embedded header block', () => {
+        // Same guard as text-mentions-headers.eml, across blocks: the From value carries no
+        // address and the Sent value nothing date shaped, so no roles accumulate.
+        const prose =
+            '<p>When you report the problem, include:</p>' +
+            '<p>From: the address that sent it</p>' +
+            '<p>Sent: roughly when it happened</p>' +
+            '<p>Subject: the exact subject line</p>';
+        const { blocks } = segmentHtmlBlocks(prose, '2');
+        assert.ok(blocks.every(block => block.kind !== 'quoted_header_block'));
+    });
+
+    it('attaches attribution evidence when the attribution leads a larger block', () => {
+        // The kind must stay paragraph: the block also holds the material after the attribution,
+        // and an anchor-kinded block is treated as client boilerplate by the adoption rule.
+        const mixed = '<div>my answer</div><div>On Mon, 27 Jul 2026 at 09:15, Bob &lt;bob@example.com&gt; wrote:<br>Pasted old text.<br>More old text.</div>';
+        const { blocks } = segmentHtmlBlocks(mixed, '2');
+        const block = blocks.find(item => item.content.startsWith('On Mon'));
+        assert.equal(block?.kind, 'paragraph');
+        assert.ok(block?.evidence.some(evidence => evidence.kind === 'reply-anchor'));
+        // A block whose first line is prose gets nothing, even when a later line looks like an
+        // attribution: nothing above an anchor inside the same block may be swept as history.
+        const prose = '<div>Please read the note below.<br>On Mon, 27 Jul 2026 at 09:15, Bob &lt;bob@example.com&gt; wrote:</div>';
+        const other = segmentHtmlBlocks(prose, '2').blocks[0];
+        assert.ok(!other?.evidence.some(evidence => evidence.kind === 'reply-anchor'));
+    });
+
+    it('gives hr and underscore rules weak separator evidence', () => {
+        const { blocks } = segmentHtmlBlocks('<div>text</div><hr><p>__________</p>', '2');
+        const hr = blocks.find(block => block.kind === 'separator' && block.content === '');
+        assert.ok(hr?.evidence.some(evidence => evidence.kind === 'separator' && evidence.strength < 0.85));
+        const underscore = blocks.find(block => block.content.includes('_____'));
+        assert.equal(underscore?.kind, 'separator');
+        assert.ok(underscore?.evidence.some(evidence => evidence.kind === 'separator' && evidence.strength < 0.85));
+    });
+
+    it('computes position from projected text rather than markup offsets', () => {
+        // A large <style> block used to push every visible block's position towards 1, which
+        // blinded the position gated signature and disclaimer detectors on heavy markup mail.
+        const styled = '<style>' + 'x'.repeat(5000) + '</style><div>hello there friend</div><div>Best regards</div>';
+        const { blocks } = segmentHtmlBlocks(styled, '2');
+        const first = blocks.find(block => block.content === 'hello there friend');
+        assert.equal(first?.features.position, 0);
+        const last = blocks.find(block => block.content === 'Best regards');
+        assert.ok(last !== undefined && last.features.position < 0.75);
+    });
 });

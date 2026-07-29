@@ -17,7 +17,7 @@
 
 import { type HTMLElement, type Node, NodeType, parse } from 'node-html-parser';
 import { loadPatterns, type SelectorPattern } from '../detect/patterns';
-import { detectAttributionLine, detectQuotedHeaderBlock } from '../detect/reply-header';
+import { detectAttributionLine, detectQuotedHeaderBlock, detectRuleSeparator } from '../detect/reply-header';
 import { detectForwardMarker } from '../detect/forward-header';
 import { detectSignatureDelimiter, detectSignaturePhrases, detectSignatureShape } from '../detect/signature';
 import { detectDisclaimer } from '../detect/disclaimer';
@@ -312,9 +312,11 @@ function evidenceFromAncestry(ancestors: readonly Ancestor[]): Evidence[] {
                         ? 'separator'
                         : pattern.role === 'signature'
                           ? 'signature'
-                          : pattern.role === 'new'
-                            ? 'new-content'
-                            : 'hint';
+                          : pattern.role === 'disclaimer'
+                            ? 'disclaimer'
+                            : pattern.role === 'new'
+                              ? 'new-content'
+                              : 'hint';
             const id = `html:${pattern.id}`;
             const existing = evidence.get(id);
             if (!existing || existing.strength < pattern.strength) {
@@ -690,6 +692,130 @@ export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentat
             features: computeFeatures('', { index: 0, total: 1, start: 0, totalChars: html.length, quoteDepth: 0 }),
             evidence: []
         });
+    }
+
+    // The position feature was computed from raw markup offsets, so a block sitting after a large
+    // <style> element or an MSO conditional began life "late" in the document even when it is the
+    // first thing the reader sees. The signature shape and disclaimer detectors gate on position,
+    // which made them near blind exactly in the heavy markup mail where they matter most. Recompute
+    // from the projected text, which is the document the reader actually reads.
+    const totalContentChars = blocks.reduce((sum, block) => sum + block.content.length, 0);
+    let contentBefore = 0;
+    for (const block of blocks) {
+        block.features.position = totalContentChars > 0 ? contentBefore / totalContentChars : 0;
+        contentBefore += block.content.length;
+    }
+
+    // An embedded header block split across sibling elements. Outlook desktop emits each
+    // From/Sent/To/Subject field as its own <p class=MsoNormal>, so no single block ever
+    // accumulates the three roles the detector needs and the strongest Outlook anchor was missed
+    // for exactly the client that produces it most. The plain text segmenter scans its whole line
+    // array for this shape; give the HTML path the same cross-block view by scanning a synthetic
+    // line array that concatenates the blocks' projected lines, with a blank line at each block
+    // boundary so the detector's gap rule sees the paragraph breaks the reader sees.
+    const RE_KINDABLE = new Set<BlockKind>(['paragraph', 'table', 'list']);
+    const lineTexts: string[] = [];
+    const lineOwners: number[] = [];
+    for (const block of blocks) {
+        for (const line of block.content.split('\n')) {
+            lineTexts.push(line.trim());
+            lineOwners.push(block.index);
+        }
+        lineTexts.push('');
+        lineOwners.push(block.index);
+    }
+    // First and last non-blank line of each block, so full coverage is a range check rather than a
+    // rescan of the line array, which would go quadratic when many header chains appear.
+    const blockLineBounds = new Map<number, { first: number; last: number }>();
+    for (let i = 0; i < lineTexts.length; i++) {
+        if (!lineTexts[i]) {
+            continue;
+        }
+        const owner = lineOwners[i] as number;
+        const bounds = blockLineBounds.get(owner);
+        if (!bounds) {
+            blockLineBounds.set(owner, { first: i, last: i });
+        } else {
+            bounds.last = i;
+        }
+    }
+    let scanFrom = 0;
+    while (scanFrom < lineTexts.length) {
+        const match = detectQuotedHeaderBlock(lineTexts, scanFrom);
+        if (!match) {
+            break;
+        }
+        const covered = new Set<number>();
+        for (let i = match.startLine; i <= match.endLine; i++) {
+            covered.add(lineOwners[i] as number);
+        }
+        let evidenceAttached = false;
+        for (const owner of covered) {
+            const block = blocks[owner] as Block;
+            // Only blocks the header chain fully covers are re-kinded: a block that also holds
+            // other content is not itself a header block, and re-kinding it would let the region
+            // rules treat its authored text as part of the anchor.
+            const bounds = blockLineBounds.get(owner);
+            const fullyCovered = bounds !== undefined && bounds.first >= match.startLine && bounds.last <= match.endLine;
+            if (!fullyCovered || !RE_KINDABLE.has(block.kind)) {
+                continue;
+            }
+            block.kind = 'quoted_header_block';
+            if (!evidenceAttached && !block.evidence.some(item => item.kind === 'reply-anchor')) {
+                block.evidence.push(match.evidence);
+                evidenceAttached = true;
+            }
+        }
+        scanFrom = match.endLine + 1;
+    }
+
+    for (const block of blocks) {
+        if (block.kind === 'blank' || block.features.isAllBlank) {
+            continue;
+        }
+        const nonBlankLines = block.content.split('\n').filter(line => line.trim());
+
+        // An attribution that leads a larger block. The text segmenter tests every line and splits
+        // the attribution into its own block; here the block cannot be split, so the evidence is
+        // attached without changing the kind. The kind matters: anchor adoption and the region
+        // rules treat an anchor-kinded block as client boilerplate, and this block also holds the
+        // material that follows the attribution. Only the first non-blank line is tested, so
+        // nothing the sender wrote can sit above the anchor inside the same block, which is what
+        // keeps the unmarked-history sweep from hiding authored text. Joining wrapped lines before
+        // matching was measured and rejected; see the split attribution test in segment.test.ts.
+        if (
+            nonBlankLines.length > 1 &&
+            RE_KINDABLE.has(block.kind) &&
+            !block.evidence.some(item => item.kind === 'reply-anchor' || item.kind === 'attribution')
+        ) {
+            const first = nonBlankLines[0] as string;
+            if (first.length <= 300) {
+                const attribution = detectAttributionLine(first);
+                if (attribution) {
+                    block.evidence.push(attribution);
+                }
+            }
+        }
+
+        // A separator line drawn as text. The plain text path detects these; in HTML the same
+        // underscore rule arrives inside a paragraph element. Only a block that is nothing but the
+        // rule is re-kinded, and the evidence stays at its weak strength, so it can anchor only
+        // through the corroboration rule that requires an embedded header block right after it.
+        if (block.kind === 'paragraph' && nonBlankLines.length === 1) {
+            const separator = detectRuleSeparator((nonBlankLines[0] as string).trim());
+            if (separator) {
+                block.kind = 'separator';
+                block.evidence.push(separator);
+            }
+        }
+    }
+
+    // A bare <hr> is the same boundary drawn with markup. It carries the same weak strength and is
+    // useful the same single way: corroborated by an embedded header block that follows it.
+    for (const block of blocks) {
+        if (block.kind === 'separator' && !block.evidence.some(item => item.kind === 'separator')) {
+            block.evidence.push({ id: 'html:hr_separator', kind: 'separator', strength: 0.6 });
+        }
     }
 
     // Block level footer evidence, once positions are known.

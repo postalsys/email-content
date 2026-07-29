@@ -403,7 +403,8 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
     const signals = [hasContact, hasPhrase, hasSenderName].filter(Boolean).length;
     const accepted = hasContentAbove && (strongPhrase || signals >= 2);
     if (signatureStart !== -1 && accepted) {
-        const confidence = phraseStrength >= 0.9 ? 0.95 : signals >= 3 ? 0.9 : signals >= 2 ? 0.85 : 0.76;
+        // Acceptance already required a strong phrase or two signals, so these are the only rungs.
+        const confidence = phraseStrength >= 0.9 ? 0.95 : signals >= 3 ? 0.9 : 0.85;
         const reason: Reason = phraseStrength >= 0.9 ? 'mobile_signature_phrase' : 'signature_position_and_length';
         for (let i = signatureStart; i < authoredEnd; i++) {
             const decision = decisions[i];
@@ -546,11 +547,7 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
             if (decision.label === 'SIGNATURE' || decision.label === 'DISCLAIMER') {
                 continue;
             }
-            // A generic blockquote alone is weaker evidence than a client specific container.
-            const weakContainer =
-                block.evidence.some(item => item.id === 'html:generic_blockquote') && strengthOf(block, ['quote-container']) < config.minAnchorStrength;
-            const adjusted = label === 'REPLY_HISTORY' && weakContainer && !anchored ? Math.min(confidence, 0.8) : confidence;
-            set(i, label, adjusted, [...reasons]);
+            set(i, label, confidence, [...reasons]);
         }
     }
 
@@ -646,7 +643,9 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
         if (!decision || decision.label !== 'NEW_CONTENT') {
             continue;
         }
-        const next = decisions[block.index + 1] ?? decisions[block.index + 2];
+        // The region often starts one blank block after the anchor line; skip exactly one blank.
+        const after = decisions[block.index + 1];
+        const next = after && blocks[block.index + 1]?.features.isAllBlank ? decisions[block.index + 2] : after;
         if (next && (next.label === 'REPLY_HISTORY' || next.label === 'INLINE_QUOTE' || next.label === 'FORWARDED_CONTENT')) {
             set(block.index, next.label, next.confidence, [...next.reasons]);
         }
