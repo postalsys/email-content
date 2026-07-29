@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.2](https://github.com/postalsys/email-content/compare/v0.1.1...v0.1.2) (2026-07-29)
+
+
+### Features
+
+* give the HTML segmenter the structural detectors the text path had ([7608d0a](https://github.com/postalsys/email-content/commit/7608d0a7d7187d09c52946aa49548591f86c9d72))
+* settle the annotation conventions as prompt v4 and re-label ([255c9a9](https://github.com/postalsys/email-content/commit/255c9a947abd022096c7450260976c936fee6eaa))
+
+
+### Bug Fixes
+
+* remove pattern false positives from case folding and dead alternatives ([01be58f](https://github.com/postalsys/email-content/commit/01be58f2cc0b3c178680e177e4d4cd90cde2ce12))
+
 ## [0.1.1](https://github.com/postalsys/email-content/compare/v0.1.0...v0.1.1) (2026-07-27)
 
 
