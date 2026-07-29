@@ -7,7 +7,8 @@
  * output.
  *
  * The reference here is LLM produced. It is treated as a reference, not as truth. Two strong
- * models given identical input agree on 98.6 percent of blocks under the current conventions
+ * models given identical input agree on 97.2 percent of blocks under the current conventions,
+ * 98.5 excluding three messages where one message-level judgment flips every block
  * (docs/annotation.md), so that is the effective ceiling; the earlier 80 percent figure came from
  * pairing a strong model with a weak one and measured the weak model, not annotation noise.
  */

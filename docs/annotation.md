@@ -214,3 +214,28 @@ sensibly. Excluding it gives 99.2 percent, and excluding the three worst message
 Rule 1 did most of the work. Rule 2 widened the DISCLAIMER target from 234 to 397 blocks, which
 lowered measured recall until generic notification footer patterns were added, taking it from 8.1 to
 18.1 percent at unchanged precision. What remains is per-sender templates.
+
+## Iterating the conventions (prompt v4)
+
+v3 left one contradiction standing: the guide said inline quoting happens at depth 1, while the
+prompt told the annotator that everything at depth 1 or deeper is history. The two documents are
+required to agree, and INLINE_QUOTE, the label the contradiction sits on, had the worst measured
+precision. v4 aligns the prompt with the guide and settles the calls that were still decided by
+example rather than rule: promotional footers are judged by their template shape, the whole message
+guard fires only when nothing authored exists outside the boilerplate, UNKNOWN is scoped to doubt
+about hiding, and boundary markers and nested forwards follow Rule 1.
+
+Re-annotating both models under v4 measured 97.2 percent agreement, down from v3's 98.6, and the
+shape of the residual matters more than the headline. 392 of 452 messages agree on every block.
+Three messages carry half of all disagreement, and each is a single message-level judgment
+amplified across a large message: a newsletter where one model applied the whole message guard and
+the other did not (50 blocks), one region boundary read differently (40 blocks), and one nested
+forward where gpt-5.5 did not follow the new rule (20 blocks). Excluding those three, agreement is
+98.5 percent, the same band as v3. The diffuse remainder is still DISCLAIMER: gpt-5.5 applies the
+template shape reading more aggressively than gpt-5.6-sol, 400 blocks against 335.
+
+Two lessons worth recording. Message-level conventions such as the whole message guard trade
+diffuse noise for concentrated flips: most messages become exactly reproducible, and the rare
+borderline message becomes all or nothing. And the weaker of the two strong models follows nuanced
+region rules less reliably, which is an argument for scoring against gpt-5.6-sol alone and using
+gpt-5.5 only as this consistency check.

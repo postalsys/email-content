@@ -379,8 +379,10 @@ Measured against a 452 message stratified reference set annotated by gpt-5.6-sol
 conventions in [docs/annotation-guide.md](docs/annotation-guide.md), with thread history enabled.
 
 The reference is not ground truth, but it is close. Two strong models (gpt-5.5 and gpt-5.6-sol)
-given identical input agree with each other on **98.6 percent** of blocks, and **99.2 percent** once
-a single spam message of machine generated word salad is excluded. That is the practical ceiling.
+given identical input agree with each other on **97.2 percent** of blocks under the current
+conventions, and **98.5 percent** once three messages are excluded in which a single message-level
+judgment flips every block at once. 392 of the 452 messages agree on every single block. That is
+the practical ceiling; see [docs/annotation.md](docs/annotation.md).
 
 | property | measured |
 | --- | ---: |
