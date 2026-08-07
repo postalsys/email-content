@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/postalsys/email-content/compare/v0.1.2...v0.1.3) (2026-08-07)
+
+
+### Bug Fixes
+
+* **deps:** update dependencies (libmime 5.4.2, mailsplit 5.4.15) ([b23beb0](https://github.com/postalsys/email-content/commit/b23beb0736995623b036242cd6859bc21c25a9fd))
+
 ## [0.1.2](https://github.com/postalsys/email-content/compare/v0.1.1...v0.1.2) (2026-07-29)
 
 
