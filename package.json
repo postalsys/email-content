@@ -56,21 +56,22 @@
         "test:fast": "node --test test/*.test.ts",
         "prepublishOnly": "npm run build",
         "cli": "node dist/cli/main.js",
-        "verify:package": "node scripts/verify-package.js"
+        "verify:package": "node scripts/verify-package.js",
+        "update": "rm -rf node_modules package-lock.json && ncu -u && npm install"
     },
     "dependencies": {
-        "@zone-eu/mailsplit": "5.4.14",
-        "libmime": "5.4.1",
-        "node-html-parser": "9.0.0"
+        "@zone-eu/mailsplit": "5.4.15",
+        "libmime": "5.4.2",
+        "node-html-parser": "9.0.1"
     },
     "devDependencies": {
         "@eslint/js": "10.0.1",
         "@types/node": "26.1.2",
         "eslint": "10.8.0",
         "eslint-config-prettier": "10.1.8",
-        "mailparser": "3.9.14",
+        "mailparser": "3.9.15",
         "prettier": "3.9.6",
         "typescript": "5.9.3",
-        "typescript-eslint": "8.65.0"
+        "typescript-eslint": "8.66.0"
     }
 }
