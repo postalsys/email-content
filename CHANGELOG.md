@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/postalsys/email-content/compare/v0.1.3...v0.1.4) (2026-08-31)
+
+
+### Bug Fixes
+
+* **deps:** update libmime and mailsplit for the CP932 extended areas ([42bb077](https://github.com/postalsys/email-content/commit/42bb07748212bf9bf68d549b7dc7b3a29ef390b2))
+
 ## [0.1.3](https://github.com/postalsys/email-content/compare/v0.1.2...v0.1.3) (2026-08-07)
 
 
