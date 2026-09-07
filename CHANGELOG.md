@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/postalsys/email-content/compare/v0.1.4...v0.1.5) (2026-09-07)
+
+
+### Bug Fixes
+
+* **deps:** update node-html-parser to 9.0.4 ([15b5796](https://github.com/postalsys/email-content/commit/15b5796d5a651f5231a935ef8ba265a3a4eac794))
+
 ## [0.1.4](https://github.com/postalsys/email-content/compare/v0.1.3...v0.1.4) (2026-08-31)
 
 
