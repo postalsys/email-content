@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/postalsys/email-content/compare/v0.1.6...v0.1.7) (2026-09-15)
+
+
+### Bug Fixes
+
+* **deps:** update mailparser to 3.9.28 ([41a750d](https://github.com/postalsys/email-content/commit/41a750d0786a6cadf00ae6f5f484b3973f3c6304))
+
 ## [0.1.6](https://github.com/postalsys/email-content/compare/v0.1.5...v0.1.6) (2026-09-15)
 
 

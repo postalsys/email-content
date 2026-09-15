@@ -1,6 +1,6 @@
 {
     "name": "@postalsys/email-content",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "description": "Extract conversationally relevant content from arbitrary email messages",
     "keywords": [
         "email",
