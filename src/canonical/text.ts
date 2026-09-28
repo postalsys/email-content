@@ -82,13 +82,19 @@ export function splitQuotePrefix(line: string): { depth: number; content: string
 }
 
 /**
- * Normalise decoded part text into the canonical form used by every later stage.
+ * The canonical string for a decoded plain text body, without the line model.
  *
- * Line endings become LF, a BOM is dropped, NUL bytes and lone carriage returns are removed, and
- * the result is NFC normalised so that visually identical text compares equal during history
+ * Every character offset the extractor reports for a plain text representation (segment source
+ * ranges included) indexes the string this returns, not the input. EmailEngine slices message text
+ * at those offsets to fold quoted history, so it must canonicalise with this exact function; a
+ * private copy that drifts by one character moves the cut. Treat the output as a stable contract:
+ * changing it is a breaking change for any caller that slices offsets.
+ *
+ * A leading BOM is dropped, CRLF and lone CR both become LF, NUL characters are removed, and the
+ * result is NFC normalised so that visually identical text compares equal during history
  * matching. Nothing else is altered: no trimming, no whitespace collapsing, no unwrapping.
  */
-export function canonicaliseText(input: string): CanonicalText {
+export function canonicalisePlainText(input: string): string {
     let text = input;
     if (text.charCodeAt(0) === 0xfeff) {
         text = text.slice(1);
@@ -99,6 +105,16 @@ export function canonicaliseText(input: string): CanonicalText {
     } catch {
         // Extremely long or malformed input can defeat NFC. The unnormalised text is still usable.
     }
+    return text;
+}
+
+/**
+ * Normalise decoded part text into the canonical form used by every later stage.
+ *
+ * The text is exactly `canonicalisePlainText(input)`; this adds the per line model on top of it.
+ */
+export function canonicaliseText(input: string): CanonicalText {
+    const text = canonicalisePlainText(input);
 
     const lines: TextLine[] = [];
     let offset = 0;

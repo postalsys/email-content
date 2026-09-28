@@ -1,9 +1,36 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { fingerprintClient } from '../src/detect/client';
-import { assertPatternsLoaded, countPatterns, loadPatterns, resetPatternCache } from '../src/detect/patterns';
+import { assertPatternsLoaded, countPatterns, loadPatterns, patternSource, resetPatternCache } from '../src/detect/patterns';
+import * as publicApi from '../src/index';
 import { classifyTraffic } from '../src/detect/traffic';
 import { type HeaderEntry, type MessageHeaders } from '../src/mime/model';
+
+/**
+ * Run fn with EMAIL_CONTENT_PATTERNS set to value (unset for undefined) and a fresh pattern cache,
+ * then restore both, so a failing assertion cannot leak an override into later tests.
+ */
+function withPatternsEnv(value: string | undefined, fn: () => void): void {
+    const saved = process.env.EMAIL_CONTENT_PATTERNS;
+    const set = (next: string | undefined) => {
+        if (next === undefined) {
+            delete process.env.EMAIL_CONTENT_PATTERNS;
+        } else {
+            process.env.EMAIL_CONTENT_PATTERNS = next;
+        }
+    };
+    set(value);
+    resetPatternCache();
+    try {
+        fn();
+    } finally {
+        set(saved);
+        resetPatternCache();
+    }
+}
 
 function headers(overrides: Partial<MessageHeaders> = {}): MessageHeaders {
     return {
@@ -174,5 +201,34 @@ describe('pattern loading is fail loud', () => {
         const patterns = loadPatterns('/nonexistent/pattern/directory');
         assert.ok(patterns.replyHeaders.length > 0);
         resetPatternCache();
+    });
+
+    it('reports the bundled source when no override is set', () => {
+        withPatternsEnv(undefined, () => {
+            assert.deepEqual(patternSource(), { override: null, overriddenFiles: [] });
+            assert.equal(publicApi.patternSource, patternSource);
+        });
+    });
+
+    it('reports the override directory and which files it actually replaced', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'email-content-patterns-'));
+        try {
+            fs.writeFileSync(
+                path.join(dir, 'signatures.json'),
+                JSON.stringify({ delimiters: [{ id: 'test-delimiter', pattern: '^--override--$', strength: 0.9 }], phrases: [] })
+            );
+            withPatternsEnv(dir, () => {
+                const patterns = loadPatterns();
+                assert.deepEqual(
+                    patterns.signatureDelimiters.map(p => p.id),
+                    ['test-delimiter']
+                );
+                // Files the directory does not hold still come from the bundle.
+                assert.ok(patterns.replyHeaders.length > 0);
+                assert.deepEqual(patternSource(), { override: dir, overriddenFiles: ['signatures.json'] });
+            });
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
     });
 });

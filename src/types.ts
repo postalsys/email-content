@@ -290,6 +290,21 @@ export interface ContentAnalysisResult {
      * pretending the answer is known.
      */
     isReply: boolean;
+    /**
+     * The canonical plain text that segment offsets index into, keyed by MIME part id.
+     *
+     * A segment whose `source` is a `mime-part` with representation `text` reports `start`/`end`
+     * into the canonicalised part text, not into the text the caller supplied (line endings, a BOM,
+     * NUL characters and Unicode normalisation can all differ). Slice
+     * `canonicalText[source.mimePart]` with those offsets. Holds an entry for every plain text part
+     * whose representation reached the segments, and nothing else: HTML offsets index the HTML
+     * source unchanged, and a degraded result (a fail-soft fallback) indexes the input as given.
+     *
+     * Sections that share a part id (several caller supplied sections without `textPartId` all
+     * default to `TEXT`) cannot be told apart by offset; give them distinct ids. The same string is
+     * available standalone through `canonicalisePlainText()`.
+     */
+    canonicalText: Record<string, string>;
 }
 
 /** Result of extracting one message. */

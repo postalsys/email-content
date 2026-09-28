@@ -410,6 +410,9 @@ export async function resolveHistory(options: AnalyzeOptions): Promise<HistoryDo
  *
  * Never throws. A body that cannot be segmented is returned whole as a single visible `UNKNOWN`
  * segment, because showing too much is always preferable to showing nothing.
+ *
+ * Segment offsets from a plain text part index its canonical text, which the result carries as
+ * `canonicalText[mimePart]`, so a caller can slice exactly what it was given.
  */
 export async function analyze(content: MessageContent, options: AnalyzeOptions = {}): Promise<AnalyzeResult> {
     // Classifier assets are loaded here, outside the fail-soft block below.
@@ -432,7 +435,8 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
     const base = {
         originalAvailable: true as const,
         extractorVersion: EXTRACTOR_VERSION,
-        isReply
+        isReply,
+        canonicalText: {} as Record<string, string>
     };
 
     const empty = {
@@ -460,6 +464,7 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
         // Segment every section and choose its representation, before anything is classified.
         const segmented: SegmentedSection[] = [];
         const documentBlocks: Block[] = [];
+        const canonicalText: Record<string, string> = {};
 
         for (const section of sections) {
             const sectionText = typeof section.text === 'string' ? section.text : '';
@@ -467,9 +472,12 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
 
             let textInfo: RepresentationInfo | null = null;
             let htmlInfo: RepresentationInfo | null = null;
+            let canonical: { mimePart: string; text: string } | null = null;
 
             if (sectionText.trim()) {
-                const blocks = segmentTextBlocks(sectionText, section.textPartId ?? 'TEXT').blocks;
+                const textPartId = section.textPartId ?? 'TEXT';
+                const { canonical: canonicalForm, blocks } = segmentTextBlocks(sectionText, textPartId);
+                canonical = { mimePart: textPartId, text: canonicalForm.text };
                 textInfo = representationInfo(blocks, 'text', false, config.minAnchorStrength);
             }
             if (sectionHtml.trim()) {
@@ -485,6 +493,11 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
             }
 
             const choice = pickPrimary(textInfo, htmlInfo);
+            if (canonical && choice.primary.representation === 'text') {
+                // Already computed by segmentation; handed back so a caller slicing segment offsets
+                // does not have to recompute it and risk disagreeing with it.
+                canonicalText[canonical.mimePart] = canonical.text;
+            }
             const start = documentBlocks.length;
             for (const block of choice.primary.blocks) {
                 // Section-local index preserved for traceability; the array position becomes the
@@ -576,6 +589,7 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
                 warnings,
                 primaryRepresentation: primary.representation,
                 historyUsed: history.length > 0,
+                canonicalText,
                 ...(options.explain ? { diagnostics: buildDiagnostics(documentBlocks, decisions) } : {})
             };
         }
@@ -591,6 +605,7 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
             warnings,
             primaryRepresentation: primary.representation,
             historyUsed: history.length > 0,
+            canonicalText,
             ...(options.explain ? { diagnostics: buildDiagnostics(documentBlocks, decisions) } : {})
         };
     } catch (err) {

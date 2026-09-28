@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { canonicaliseText, profileQuoting, splitQuotePrefix } from '../src/canonical/text';
+import { canonicalisePlainText, canonicaliseText, profileQuoting, splitQuotePrefix } from '../src/canonical/text';
+import * as publicApi from '../src/index';
+import { analyze } from '../src/analyze';
 import { segmentTextBlocks } from '../src/segment/text-blocks';
 
 describe('splitQuotePrefix', () => {
@@ -36,7 +38,7 @@ describe('canonicaliseText', () => {
     });
 
     it('strips a BOM and NUL bytes', () => {
-        const canonical = canonicaliseText('﻿hello\0 world');
+        const canonical = canonicaliseText('\ufeffhello\0 world');
         assert.equal(canonical.text, 'hello world');
     });
 
@@ -146,5 +148,77 @@ describe('wrapped quote continuations', () => {
         const input = ['> quoted line trailing off mid', 'about the', '> course continues', '', 'My reply.'].join('\n');
         const { canonical, blocks } = segmentTextBlocks(input, 'TEXT');
         assert.equal(blocks.map(block => block.text).join(''), canonical.text);
+    });
+});
+
+describe('canonicalisePlainText (public)', () => {
+    // EmailEngine slices text at the offsets the extractor reports, using this function (formerly a
+    // hand-kept copy in lib/web-safe-html.js). These outputs are a contract: if one has to change,
+    // the release note must say that offsets moved.
+    const cases: [string, string, string][] = [
+        ['CRLF becomes LF', 'a\r\nb\r\n', 'a\nb\n'],
+        ['lone CR becomes LF', 'a\rb\r', 'a\nb\n'],
+        ['CR CR LF is one LF plus one LF', 'a\r\r\nb', 'a\n\nb'],
+        ['NUL is removed', 'a\0b\0\0c', 'abc'],
+        ['leading BOM is dropped', '\ufeffhello', 'hello'],
+        ['only a leading BOM is dropped', 'a\ufeffb', 'a\ufeffb'],
+        ['NFC composes', 'e\u0301', '\u00e9'],
+        ['whitespace and quote markers are kept', '  > quoted  \n\t\n', '  > quoted  \n\t\n'],
+        ['empty stays empty', '', '']
+    ];
+
+    for (const [name, input, expected] of cases) {
+        it(name, () => {
+            assert.equal(canonicalisePlainText(input), expected);
+            // The line model is built on exactly this string, so the offsets agree.
+            assert.equal(canonicaliseText(input).text, expected);
+        });
+    }
+
+    it('is exported from the package entry point', () => {
+        assert.equal(publicApi.canonicalisePlainText, canonicalisePlainText);
+    });
+});
+
+describe('analyze() canonicalText', () => {
+    // Input chosen so the canonical form differs from the input (BOM, CRLF, NUL, decomposed e),
+    // which is exactly when slicing the caller's own string at the offsets goes wrong.
+    const input =
+        '\ufeffCaf\u0065\u0301 on Monday?\r\nYes.\0\r\n\r\nOn Mon, Jan 5, 2026 at 10:00 AM Bob <bob@example.com> wrote:\r\n> Shall we meet?\r\n> Bob\r\n';
+
+    it('carries the canonical text the segment offsets index into', async () => {
+        const result = await analyze({ text: input, textPartId: '1' });
+        assert.deepEqual(Object.keys(result.canonicalText), ['1']);
+        const canonical = result.canonicalText['1'];
+        assert.equal(canonical, canonicalisePlainText(input));
+        assert.notEqual(canonical, input);
+
+        const segments = [...result.segments, ...result.hiddenSegments];
+        assert.ok(segments.length >= 2, 'expected new content and reply history');
+        for (const segment of segments) {
+            assert.equal(segment.source.kind, 'mime-part');
+            if (segment.source.kind !== 'mime-part') {
+                continue;
+            }
+            assert.equal(segment.source.representation, 'text');
+            const slice = canonical.slice(segment.source.start, segment.source.end);
+            // Segment text is the block content without quote prefixes, so each of its lines must
+            // appear inside the slice its offsets name.
+            for (const line of segment.text.split('\n').filter(line => line.trim())) {
+                assert.ok(slice.includes(line), `${JSON.stringify(line)} not within ${JSON.stringify(slice)}`);
+            }
+        }
+    });
+
+    it('omits parts whose representation did not drive the segments', async () => {
+        const result = await analyze({ text: 'Plain.', html: '<p>Html.</p>' });
+        if (result.primaryRepresentation === 'html') {
+            assert.deepEqual(result.canonicalText, {});
+        }
+    });
+
+    it('is empty when there is no body', async () => {
+        const result = await analyze({});
+        assert.deepEqual(result.canonicalText, {});
     });
 });

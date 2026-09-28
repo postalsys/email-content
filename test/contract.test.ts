@@ -29,7 +29,8 @@ const SHARED_FIELDS = [
     'primaryRepresentation',
     'extractorVersion',
     'historyUsed',
-    'isReply'
+    'isReply',
+    'canonicalText'
 ] as const;
 
 function reply(headers: readonly string[], body: string): Buffer {

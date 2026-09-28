@@ -121,7 +121,7 @@ Both entry points return the same shape. `extract()` adds nothing except optiona
         "mimePart": "1.2",       // IMAP style part path
         "representation": "html",
         "blockIndex": 0,         // position within this part, not within the whole message
-        "start": 0,              // character offsets into the canonical part text
+        "start": 0,              // offsets: canonical text for "text", the HTML source for "html"
         "end": 79,
         "domPath": "/0/1"
       }
@@ -134,7 +134,8 @@ Both entry points return the same shape. `extract()` adds nothing except optiona
   "primaryRepresentation": "html",
   "extractorVersion": "<current package version>",
   "historyUsed": false,
-  "isReply": true
+  "isReply": true,
+  "canonicalText": {}            // part id -> canonical plain text, for "text" segment offsets
 }
 ```
 
@@ -159,6 +160,23 @@ A few fields are easy to misread:
   parsing failed outright and there is no part structure to point at.
 - **`isReply: false`** means "not known to be a reply". When parsing fails there are no threading
   headers to read, and the result carries a `reply_status_unknown` warning to say so.
+- **`source.start` / `source.end`** on a plain text segment index the *canonical* part text, not
+  the string you passed in: line endings become LF, a leading BOM and NUL characters are removed,
+  and the text is NFC normalised. Slice `result.canonicalText[source.mimePart]`, which holds that
+  string for every plain text part the segments came from. HTML segments index the HTML source
+  unchanged, and a degraded fail-soft segment indexes the input as given. To canonicalise a body
+  yourself, without running the extractor, use the exported `canonicalisePlainText(text)`, which
+  returns exactly the same string.
+
+```js
+const result = await analyze({ text });
+for (const segment of result.segments) {
+    const { mimePart, representation, start, end } = segment.source;
+    if (representation === 'text') {
+        const slice = result.canonicalText[mimePart].slice(start, end);
+    }
+}
+```
 
 ### Thread history
 
@@ -478,8 +496,34 @@ src/cli/         Command line entry points
 test/            Tests and hand written fixtures
 ```
 
-Pattern sets in `src/detect/patterns/` can be overridden at runtime by pointing
-`EMAIL_CONTENT_PATTERNS` at a directory containing replacements.
+### Overriding pattern sets
+
+The detector patterns ship as JSON files in `src/detect/patterns/` (`reply-headers.json`,
+`forward-headers.json`, `quoted-headers.json`, `signatures.json`, `disclaimers.json`,
+`html-clients.json`). Setting the `EMAIL_CONTENT_PATTERNS` environment variable to a directory
+replaces them at runtime for the whole process. The variable is read once, when the package is
+first required.
+
+- Files are matched by name, one file at a time. A file present in the override directory replaces
+  the bundled file of the same name completely; it is not merged with it. A file missing from the
+  directory falls back to the bundled one, so an override can replace a single set.
+- An override file that exists but is not valid JSON throws `PatternAssetError`, as does a load
+  that ends with no usable pattern at all.
+- A pattern that fails to compile is skipped and its id recorded, rather than failing the load.
+
+Because the variable is unprefixed and changes what gets hidden, a host application should log
+which source is in effect at startup:
+
+```js
+const { patternSource } = require('@postalsys/email-content');
+
+const source = patternSource();
+// { override: null, overriddenFiles: [] } for the bundled sets, or
+// { override: '/etc/patterns', overriddenFiles: ['signatures.json'] }
+if (source.override) {
+    console.warn(`email-content patterns overridden from ${source.override}: ${source.overriddenFiles.join(', ') || 'no matching files'}`);
+}
+```
 
 ## Status
 

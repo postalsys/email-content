@@ -97,11 +97,16 @@ function readJson(dir: string, file: string): ReadResult {
     }
 }
 
-function loadFile(file: string, overrideDir: string | null): Record<string, unknown> {
+interface LoadedFile {
+    value: Record<string, unknown>;
+    overridden: boolean;
+}
+
+function loadFile(file: string, overrideDir: string | null): LoadedFile {
     if (overrideDir) {
         const override = readJson(overrideDir, file);
         if (override.ok) {
-            return override.value;
+            return { value: override.value, overridden: true };
         }
         if (override.reason === 'invalid') {
             throw new PatternAssetError(`Pattern file ${file} in ${overrideDir} is not valid JSON.`, file);
@@ -110,12 +115,12 @@ function loadFile(file: string, overrideDir: string | null): Record<string, unkn
     }
     const bundled = readJson(BUNDLED_DIR, file);
     if (bundled.ok) {
-        return bundled.value;
+        return { value: bundled.value, overridden: false };
     }
     if (bundled.reason === 'invalid') {
         throw new PatternAssetError(`Bundled pattern file ${file} is corrupt. Reinstall the package.`, file);
     }
-    return {};
+    return { value: {}, overridden: false };
 }
 
 function compileLinePatterns(input: unknown, invalid: string[]): LinePattern[] {
@@ -214,43 +219,86 @@ export function assertPatternsLoaded(sets: PatternSets, source: string): void {
     }
 }
 
-let cached: PatternSets | null = null;
+const PATTERN_FILES = [
+    'reply-headers.json',
+    'forward-headers.json',
+    'quoted-headers.json',
+    'signatures.json',
+    'disclaimers.json',
+    'html-clients.json'
+] as const;
 
-/** Load and compile all pattern sets. Cached after the first call. */
-export function loadPatterns(overrideDir?: string | null): PatternSets {
-    if (cached && overrideDir === undefined) {
-        return cached;
-    }
-    const dir = overrideDir === undefined ? process.env.EMAIL_CONTENT_PATTERNS || null : overrideDir;
+type PatternFile = (typeof PATTERN_FILES)[number];
+
+// The compiled sets and the source they came from are cached together, so neither can be read
+// without the other and a reset clears both at once.
+let cache: { sets: PatternSets; source: PatternSource } | null = null;
+
+function loadUncached(dir: string | null): { sets: PatternSets; source: PatternSource } {
     const invalid: string[] = [];
+    const overriddenFiles: string[] = [];
+    const files = {} as Record<PatternFile, Record<string, unknown>>;
+    for (const file of PATTERN_FILES) {
+        const loaded = loadFile(file, dir);
+        files[file] = loaded.value;
+        if (loaded.overridden) {
+            overriddenFiles.push(file);
+        }
+    }
 
-    const reply = loadFile('reply-headers.json', dir);
-    const forward = loadFile('forward-headers.json', dir);
-    const quoted = loadFile('quoted-headers.json', dir);
-    const signatures = loadFile('signatures.json', dir);
-    const disclaimers = loadFile('disclaimers.json', dir);
-    const html = loadFile('html-clients.json', dir);
-
+    const signatures = files['signatures.json'];
     const sets: PatternSets = {
-        replyHeaders: compileLinePatterns(reply.patterns, invalid),
-        forwardHeaders: compileLinePatterns(forward.patterns, invalid),
-        quotedHeaderFields: compileLinePatterns(quoted.fields, invalid),
+        replyHeaders: compileLinePatterns(files['reply-headers.json'].patterns, invalid),
+        forwardHeaders: compileLinePatterns(files['forward-headers.json'].patterns, invalid),
+        quotedHeaderFields: compileLinePatterns(files['quoted-headers.json'].fields, invalid),
         signatureDelimiters: compileLinePatterns(signatures.delimiters, invalid),
         signaturePhrases: compileLinePatterns(signatures.phrases, invalid),
-        disclaimerPhrases: compileLinePatterns(disclaimers.phrases, invalid),
-        htmlSelectors: compileSelectors(html.selectors, invalid),
+        disclaimerPhrases: compileLinePatterns(files['disclaimers.json'].phrases, invalid),
+        htmlSelectors: compileSelectors(files['html-clients.json'].selectors, invalid),
         invalid
     };
 
     assertPatternsLoaded(sets, dir ?? BUNDLED_DIR);
+    return { sets, source: { override: dir, overriddenFiles } };
+}
 
-    if (overrideDir === undefined) {
-        cached = sets;
+function loadCached(): { sets: PatternSets; source: PatternSource } {
+    if (!cache) {
+        cache = loadUncached(process.env.EMAIL_CONTENT_PATTERNS || null);
     }
-    return sets;
+    return cache;
+}
+
+/** Load and compile all pattern sets. Cached after the first call. */
+export function loadPatterns(overrideDir?: string | null): PatternSets {
+    return overrideDir === undefined ? loadCached().sets : loadUncached(overrideDir).sets;
+}
+
+/** Where the pattern sets used by `extract()` and `analyze()` came from. */
+export interface PatternSource {
+    /** The override directory named by EMAIL_CONTENT_PATTERNS, or null for the bundled sets only. */
+    override: string | null;
+    /**
+     * Files actually read from the override directory. Any file not listed came from the bundled
+     * set, because an override directory may replace only some files. Empty when `override` is
+     * null, and also when the directory exists but holds none of the expected file names.
+     */
+    overriddenFiles: string[];
+}
+
+/**
+ * Report which pattern source is in effect, so a caller can log it at startup.
+ *
+ * The override is read from an unprefixed environment variable, so it can be set for a host
+ * process without anyone noticing. Nothing in the extraction result says the patterns differ from
+ * the bundled ones; this is the only way to find out.
+ */
+export function patternSource(): PatternSource {
+    const { source } = loadCached();
+    return { override: source.override, overriddenFiles: [...source.overriddenFiles] };
 }
 
 /** Reset the cache. Used by tests that swap pattern directories. */
 export function resetPatternCache(): void {
-    cached = null;
+    cache = null;
 }

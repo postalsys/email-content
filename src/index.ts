@@ -24,7 +24,8 @@ export { buildHistoryDocument, matchBlocks, type HistoryDocument, type BlockMatc
 export { corpusThreadResolver, folderThreadResolver, type ThreadResolver } from './corpus/thread-index';
 export { analyze, resolveHistory, senderTokensFrom, type BodySection, type MessageContent, type AnalyzeOptions, type AnalyzeResult } from './analyze';
 export { planBody, reportableExclusions, type BodyPlan, type ExclusionReason, type PlannedSection, type SectionRole } from './mime/select';
-export { loadPatterns, PatternAssetError } from './detect/patterns';
+export { loadPatterns, patternSource, PatternAssetError, type PatternSource } from './detect/patterns';
+export { canonicalisePlainText } from './canonical/text';
 
 /**
  * Classifier assets are validated when the package is required, not when a message arrives.
@@ -104,7 +105,8 @@ function degraded(text: string, warnings: Warning[]): ExplainedResult {
         // Threading headers are exactly what a failed parse could not read. Reply status is left
         // false and the uncertainty is made observable, rather than guessed at with a substring
         // search over the raw bytes.
-        isReply: false
+        isReply: false,
+        canonicalText: {}
     } satisfies ExtractionResult;
 }
 
@@ -210,6 +212,7 @@ export async function extract(raw: Buffer | string, options: ExtractOptions = {}
         extractorVersion: result.extractorVersion,
         historyUsed: result.historyUsed,
         isReply: result.isReply,
+        canonicalText: result.canonicalText,
         // `satisfies` rather than a bare return: an omitted mandatory field then fails the build
         // instead of quietly disappearing from the public result, which is how `isReply` went
         // missing from this entry point while the README documented it.
