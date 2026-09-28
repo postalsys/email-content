@@ -308,6 +308,47 @@ candidate would hide, with both strong models as references.
 
 Continue past this gate only if agreement is in the strong-model range and the gate count is near
 zero after the cost rule. If it lands near the gpt-5.4-mini level, record the result here and keep
-the OpenAI annotator. The measured run is still to be done: it needs a `TYPESAFE_API_KEY` and an
-explicit decision that sending this corpus's block text to a second provider is acceptable (see
-`docs/threat-model.md`).
+the OpenAI annotator.
+
+### Measured: jev-1.13.0 does not clear the gate
+
+Run on 2026-09-28 over the same 452 messages and 8,490 blocks (every block aligned with the
+reference), 10.2M input tokens, about 23k per message and 63 seconds wall time at concurrency 6.
+The cost rule is re-applied at several ratios from the one stored run; ratio 1 is the model's
+unbiased top choice.
+
+| cost ratio | vs gpt-5.6-sol | by characters | vs gpt-5.5 | gate: both call authored, jev hides |
+| ---------: | -------------: | ------------: | ---------: | ----------------------------------: |
+|          1 |          77.0% |         80.3% |      75.4% |              45 blocks, 6,924 chars |
+|          2 |          70.1% |         72.0% |      68.5% |              21 blocks, 4,678 chars |
+|          3 |          65.3% |         67.3% |      63.8% |              14 blocks, 1,331 chars |
+|         10 |          51.5% |         51.4% |      50.2% |                 5 blocks, 237 chars |
+
+**Result: no-go.** Even its unbiased top choice agrees with the strong reference less often than
+gpt-5.4-mini did (80.5 percent), the level this document already calls unusable. The OpenAI
+annotator stays the reference.
+
+The cost rule is not the problem, it only trades one error for another: jev's distributions are
+soft (a typical history block reads P(REPLY_HISTORY) 0.65 to 0.86 with the rest on INLINE_QUOTE),
+so any ratio that drives the gate toward zero leaves most history visible. The disagreements at
+ratio 1 say where the model actually fails:
+
+| gpt-5.6-sol said | jev said          | blocks |
+| ---------------- | ----------------- | -----: |
+| REPLY_HISTORY    | INLINE_QUOTE      |    693 |
+| REPLY_HISTORY    | NEW_CONTENT       |    245 |
+| REPLY_HISTORY    | SIGNATURE         |    224 |
+| SIGNATURE        | NEW_CONTENT       |    223 |
+| REPLY_HISTORY    | FORWARDED_CONTENT |    129 |
+| REPLY_HISTORY    | DISCLAIMER        |    100 |
+
+This is the region-over-content convention failing, the literal reading weakness documented for
+jev 1.13: signatures, disclaimers and forwards inside quoted history are labelled by what they look
+like, and depth 1 history by its quote markers. Per label, REPLY_HISTORY agrees 75.5 percent and
+SIGNATURE 54.4 percent. By language, English reaches 81.9 percent and Estonian 75.6 percent, so it
+is not mainly a language problem.
+
+If this is revisited, the plan's Step 2 alternative is the one to try: split each block into a
+region question (this message, deliberately quoted, attached history, forwarded) and a
+within-region question (body, signature, disclaimer), combined in code, so the region is decided
+before content type can pull the answer. It would need its own prompt version and this same gate.
