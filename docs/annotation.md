@@ -239,3 +239,75 @@ diffuse noise for concentrated flips: most messages become exactly reproducible,
 borderline message becomes all or nothing. And the weaker of the two strong models follows nuanced
 region rules less reliably, which is an argument for scoring against gpt-5.6-sol alone and using
 gpt-5.5 only as this consistency check.
+
+## TypeSafe as a probabilistic annotator
+
+`annotate --provider typesafe` labels the same blocks with TypeSafe's System One model (`jev-1.13.0`,
+pinned). It is a third annotator for the agreement table, not a replacement for the OpenAI one, and
+it does not touch the extractor: `extract()` never reaches it.
+
+```bash
+cp .env.example .env          # add TYPESAFE_API_KEY
+email-content annotate --provider typesafe --paths data/relabel-paths.txt
+email-content agreement --candidate jev-1.13.0@annotate-ts-v1 \
+    --reference gpt-5.6-sol@annotate-v4,gpt-5.5@annotate-v4
+email-content disagreements --model jev-1.13.0 --prompt-version annotate-ts-v1 --sort margin
+```
+
+### What is different
+
+Each message is one request with the blocks as JSON state and one Choice question per block, over
+the same seven labels. The answer is an option and a probability distribution. There is no field in
+which text could come back, so "select, never generate" holds by protocol, as it does by schema on
+the OpenAI path. Answers go through the same validation: unanswered blocks become `UNKNOWN` with
+confidence zero, answers to questions never asked are discarded and counted, and an answer without
+a usable distribution counts as unanswered.
+
+The HOW TO DECIDE, QUOTE DEPTH and REGION WINS rules are carried in the option descriptions they
+disambiguate (`src/annotate/typesafe-prompt.ts`), because every question is evaluated in isolation
+and jev applies rules literally. The COST OF ERRORS and CONFIDENCE sections are left out on purpose:
+
+- **The cost asymmetry is a decision rule in code**, not a request to the model. A block is labelled
+  `REPLY_HISTORY` only if P(REPLY_HISTORY) > 10 x (P(NEW_CONTENT) + P(INLINE_QUOTE)); otherwise it
+  falls back to the more likely authored label. The authored probabilities are summed because
+  hiding is wrong if the block is either. The ratio of 10 is part of the `annotate-ts-v1`
+  convention, so stored labels never mix ratios under one prompt version.
+- **The raw distribution is stored** in `annotations.probabilities` (migration 3) next to the rule's
+  outcome in `label`, with the margin between its top two labels in `annotations.margin`.
+  `agreement --cost-ratio <n>` re-applies a different ratio to stored runs without paying for
+  inference again.
+- **Confidence is the model's own**, derived from the distribution, and `disagreements --sort
+margin` orders review by the gap between the two most likely labels, so a reviewer starts with
+  the blocks the annotator itself found ambiguous.
+
+Blocks are addressed by array position (`blocks[3]`), and the state carries no block index at all,
+so there is no second number to confuse with the position. A message whose questions would exceed
+the per request token budget is split into several requests, each carrying the full state, sent in
+parallel.
+
+Runs are stored as `source = 'llm'`, `model = 'jev-1.13.0'`, `prompt_version = 'annotate-ts-v1'`, so
+they never share a resume key or an evaluation with OpenAI runs.
+
+### The adoption gate
+
+`agreement` compares a candidate annotator against references on blocks they both labelled, matched
+by path, MIME part and offsets so that a segmentation change between runs is reported as unmatched
+rather than counted as disagreement. It reproduces the figures above: gpt-5.4-mini against gpt-5.5
+under annotate-v2 is 80.5 percent of blocks and 85.0 percent of characters.
+
+Under annotate-v4 the two strong models give the bar TypeSafe has to meet:
+
+| candidate vs reference, annotate-v4 | blocks | agreement | by characters | expensive direction    |
+| ----------------------------------- | -----: | --------: | ------------: | ---------------------- |
+| gpt-5.5 vs gpt-5.6-sol              |  8,490 |     97.2% |         97.4% | 47 blocks, 6,005 chars |
+
+The expensive direction is not zero even between strong models: gpt-5.5 labels 47 blocks history
+that gpt-5.6-sol calls authored, 42 of them NEW_CONTENT. "Near zero" for a candidate therefore
+means the `GATE` line of `agreement`, blocks that **every** reference calls authored and the
+candidate would hide, with both strong models as references.
+
+Continue past this gate only if agreement is in the strong-model range and the gate count is near
+zero after the cost rule. If it lands near the gpt-5.4-mini level, record the result here and keep
+the OpenAI annotator. The measured run is still to be done: it needs a `TYPESAFE_API_KEY` and an
+explicit decision that sending this corpus's block text to a second provider is acceptable (see
+`docs/threat-model.md`).

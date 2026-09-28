@@ -337,9 +337,12 @@ email-content extract message.eml
 email-content extract message.eml --json
 email-content extract message.eml --explain      # per block evidence, features and reasons
 
-# Label blocks with an LLM instead of a human (opt in, sends content to OpenAI)
+# Label blocks with an LLM instead of a human (opt in, sends content to OpenAI or TypeSafe)
 email-content annotate --sample 60 --model gpt-5.4-mini
+email-content annotate --provider typesafe --paths data/relabel-paths.txt
+email-content agreement --candidate jev-1.13.0@annotate-ts-v1 --reference gpt-5.6-sol@annotate-v4,gpt-5.5@annotate-v4
 email-content disagreements --direction expensive
+email-content disagreements --model jev-1.13.0 --sort margin    # most ambiguous first
 
 # Scan a corpus of .eml files into a local SQLite database
 email-content corpus scan /path/to/eml-folder
@@ -459,7 +462,8 @@ The corpus this was built against is private email, and the project is built acc
 
 - Nothing contacts the network by default. The runtime dependency tree is three packages and none
   opens a socket. The one exception is `email-content annotate`, an opt in command that sends block
-  text to an LLM API; see [docs/annotation.md](docs/annotation.md).
+  text to an LLM API (OpenAI, or TypeSafe with `--provider typesafe`); see
+  [docs/annotation.md](docs/annotation.md).
 - Source `.eml` files are opened read only and never modified.
 - No message body, subject or address is written to logs, to the terminal, or to the corpus
   database by any command except `disagreements`, which prints block text on purpose so a human can

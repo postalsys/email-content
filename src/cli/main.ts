@@ -41,8 +41,10 @@ Commands:
     --traffic <class>         human, ticketing, mailing-list, bulk, all (default human)
     --replies false           Include non replies
 
-  annotate                    Label blocks with an LLM instead of a human (sends content to OpenAI)
-    --model <id>              Model id (default gpt-5.6-sol)
+  annotate                    Label blocks with an LLM instead of a human (sends content to the provider)
+    --provider <p>            openai or typesafe (default openai)
+    --model <id>              Model id (default gpt-5.6-sol, or jev-1.13.0 for typesafe)
+    --paths <file>            Annotate exactly these corpus paths instead of sampling
     --sample <n>              Messages to annotate (default 25)
     --concurrency <n>         Parallel requests (default 4)
     --traffic <class>         Traffic class to sample from (default human)
@@ -54,6 +56,15 @@ Commands:
     --direction <d>           expensive, cheap, footers, all (default expensive)
     --limit <n>               Rows to show (default 20)
     --run <id>                Restrict to one annotation run
+    --model <id>              Restrict to one annotator model
+    --prompt-version <v>      Restrict to one prompt version
+    --sort <s>                size, or margin for most ambiguous first (default size)
+
+  agreement                   Compare one annotator against others on shared blocks
+    --candidate <m@v>         Annotator to judge, as model@prompt-version
+    --reference <m@v,...>     Comma separated reference annotators
+    --cost-ratio <n>          Re-apply the cost rule to the candidate's stored probabilities
+    --json                    Emit the full report as JSON
 
   evaluate                    Score the extractor against an annotated reference set
     --model <id>              Reference annotations from this model (default gpt-5.6-sol)
@@ -90,6 +101,10 @@ async function main(argv: readonly string[]): Promise<number> {
         case 'disagreements': {
             const { disagreementsCommand } = await import('./disagreements');
             return disagreementsCommand({ ...args, positional: args.positional.slice(1) });
+        }
+        case 'agreement': {
+            const { agreementCommand } = await import('./agreement');
+            return agreementCommand({ ...args, positional: args.positional.slice(1) });
         }
         case 'evaluate': {
             const { evaluateCommand } = await import('./evaluate');

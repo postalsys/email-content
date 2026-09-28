@@ -239,7 +239,7 @@ export function computeStats(store: CorpusStore): CorpusStats {
     };
 }
 
-function pct(value: number, total: number): string {
+export function pct(value: number, total: number): string {
     if (!total) {
         return '0.0%';
     }

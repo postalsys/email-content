@@ -12,6 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseStoredProbabilities, probabilityMargin } from '../annotate/probabilities';
 import { classifyBlocks } from '../classify/rules';
 import { CorpusStore } from '../corpus/store';
 import { parseMessage } from '../mime/parse';
@@ -30,6 +31,8 @@ interface Row {
     baseline_conf: number | null;
     baseline_reasons: string;
     char_count: number;
+    probabilities: string | null;
+    margin: number | null;
 }
 
 const DIRECTIONS: Record<string, string> = {
@@ -76,6 +79,11 @@ export async function disagreementsCommand(args: ParsedArgs): Promise<number> {
     }
 
     const limit = flagPositiveInt(args, 'limit', 20);
+    const sort = flagString(args, 'sort', 'size');
+    if (sort !== 'size' && sort !== 'margin') {
+        process.stderr.write(`unknown sort: ${sort}. Use size or margin\n`);
+        return 2;
+    }
     const context = flagNonNegativeInt(args, 'context', 2);
 
     const store = new CorpusStore(dbPath);
@@ -106,11 +114,14 @@ export async function disagreementsCommand(args: ParsedArgs): Promise<number> {
         params.push(versionFilter);
     }
     const runJoin = joins.length ? `AND run_id IN (SELECT r.id FROM annotation_runs r WHERE ${joins.join(' AND ')})` : '';
+    // Smallest margin first: the blocks the annotator itself found ambiguous, which is where a human
+    // adjudicator adds the most. Rows without a distribution have no margin and sort last, by size.
+    const order = sort === 'margin' ? 'margin IS NULL, margin, char_count DESC' : 'char_count DESC';
     const rows = store.query<Row>(
-        `SELECT path, block_index, representation, label, confidence, baseline_label, baseline_conf, baseline_reasons, char_count
+        `SELECT path, block_index, representation, label, confidence, baseline_label, baseline_conf, baseline_reasons, char_count, probabilities, margin
          FROM annotations
          WHERE ${clause} ${runFilter ? 'AND run_id = ' + runFilter : ''} ${runJoin}
-         ORDER BY char_count DESC
+         ORDER BY ${order}
          LIMIT ?`,
         ...params,
         limit
@@ -123,7 +134,7 @@ export async function disagreementsCommand(args: ParsedArgs): Promise<number> {
     }
 
     const out: string[] = [];
-    out.push(`${rows.length} ${direction} disagreement(s), largest first`);
+    out.push(`${rows.length} ${direction} disagreement(s), ${sort === 'margin' ? 'most ambiguous' : 'largest'} first`);
     if (direction === 'expensive') {
         out.push('The baseline treated these as reply history. The annotator thought the sender wrote them.');
         out.push('Each one is a candidate content loss bug and should be judged by a human.');
@@ -147,6 +158,14 @@ export async function disagreementsCommand(args: ParsedArgs): Promise<number> {
         out.push(`${row.path}  block #${row.block_index}  (${row.representation})`);
         out.push(`  baseline: ${row.baseline_label} ${row.baseline_conf?.toFixed(2) ?? '?'}   annotator: ${row.label} ${row.confidence.toFixed(2)}`);
         out.push(`  reasons:  ${row.baseline_reasons || 'none'}`);
+        const probabilities = parseStoredProbabilities(row.probabilities);
+        if (probabilities) {
+            const ranked = Object.entries(probabilities)
+                .filter(([, value]) => value >= 0.01)
+                .sort((a, b) => b[1] - a[1])
+                .map(([label, value]) => `${label} ${value.toFixed(2)}`);
+            out.push(`  p:        ${ranked.join('  ')}  (margin ${(row.margin ?? probabilityMargin(probabilities)).toFixed(2)})`);
+        }
         if (block) {
             out.push(`  depth:    quote=${block.features.quoteDepth} blockquote=${block.features.blockquoteDepth} kind=${block.kind}`);
         }

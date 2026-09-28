@@ -9,6 +9,7 @@
 
 import { type CorpusStore } from '../corpus/store';
 import { EXTRACTOR_VERSION, type Label, type Reason } from '../types';
+import { probabilityMargin, type LabelProbabilities } from './probabilities';
 
 export interface AnnotationRow {
     path: string;
@@ -24,6 +25,8 @@ export interface AnnotationRow {
     baselineLabel: Label | null;
     baselineConfidence: number | null;
     baselineReasons: readonly Reason[];
+    /** Full label distribution, when the annotator returns one. */
+    probabilities?: LabelProbabilities | null;
 }
 
 export interface AnnotationRunInfo {
@@ -75,8 +78,8 @@ export function writeAnnotations(store: CorpusStore, runId: number, rows: readon
             store.run(
                 `INSERT INTO annotations (
                     run_id, path, representation, block_index, mime_part, block_start, block_end, char_count,
-                    source, label, confidence, baseline_label, baseline_conf, baseline_reasons, agrees
-                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    source, label, confidence, baseline_label, baseline_conf, baseline_reasons, agrees, probabilities, margin
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 runId,
                 row.path,
                 row.representation,
@@ -91,7 +94,9 @@ export function writeAnnotations(store: CorpusStore, runId: number, rows: readon
                 row.baselineLabel,
                 row.baselineConfidence,
                 row.baselineReasons.join(','),
-                row.baselineLabel === row.label ? 1 : 0
+                row.baselineLabel === row.label ? 1 : 0,
+                row.probabilities ? JSON.stringify(row.probabilities) : null,
+                row.probabilities ? probabilityMargin(row.probabilities) : null
             );
         }
     });

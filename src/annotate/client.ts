@@ -5,26 +5,17 @@
  * Adding a vendor SDK for one optional command would change that materially, and the surface used
  * here is a single POST with a JSON schema response format.
  *
- * This is the one place in the codebase that sends message content off the machine. It is only
- * reachable from `email-content annotate`, never from `extract()` or the corpus scanner. See
+ * This is one of the two places in the codebase that send message content off the machine, the
+ * other being `typesafe-client.ts`. Both are only reachable from `email-content annotate`, never
+ * from `extract()` or the corpus scanner. See
  * docs/threat-model.md, "Configured exception: LLM annotation".
  */
 
-export interface OpenAIConfig {
-    apiKey: string;
-    baseUrl: string;
-    model: string;
-    /** Per request timeout in milliseconds. */
-    timeoutMs: number;
-    maxRetries: number;
-}
+import { ApiError, apiConfigFromEnv, postJson, type ApiConfig, type Usage } from './http';
 
-export interface Usage {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    requests: number;
-}
+export type { Usage } from './http';
+
+export type OpenAIConfig = ApiConfig;
 
 export interface CompletionRequest {
     system: string;
@@ -45,36 +36,16 @@ export interface CompletionClient {
     complete<T>(request: CompletionRequest): Promise<T>;
 }
 
-export class OpenAIError extends Error {
-    readonly status: number;
-    readonly retryable: boolean;
-
+export class OpenAIError extends ApiError {
     constructor(message: string, status: number, retryable: boolean) {
-        super(message);
+        super(message, status, retryable);
         this.name = 'OpenAIError';
-        this.status = status;
-        this.retryable = retryable;
     }
 }
 
 /** Load configuration from the environment, after process.loadEnvFile(). */
 export function configFromEnv(model: string, overrides: Partial<OpenAIConfig> = {}): OpenAIConfig {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-        throw new Error('OPENAI_API_KEY is not set. Copy .env.example to .env and fill it in.');
-    }
-    return {
-        apiKey,
-        baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-        model,
-        timeoutMs: 120000,
-        maxRetries: 5,
-        ...overrides
-    };
-}
-
-function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return apiConfigFromEnv({ keyVar: 'OPENAI_API_KEY', urlVar: 'OPENAI_BASE_URL', defaultUrl: 'https://api.openai.com/v1' }, model, overrides);
 }
 
 export class OpenAIClient implements CompletionClient {
@@ -97,59 +68,27 @@ export class OpenAIClient implements CompletionClient {
      * contract, and a retry would usually fail the same way.
      */
     async complete<T>(request: CompletionRequest): Promise<T> {
-        let lastError: Error | null = null;
-
-        for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
-            if (attempt > 0) {
-                // Full jitter, capped, so a burst of workers does not retry in lockstep.
-                const backoff = Math.min(30000, 500 * 2 ** (attempt - 1));
-                await sleep(Math.random() * backoff);
-            }
-
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
-
-            try {
-                const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
-                    method: 'POST',
-                    signal: controller.signal,
-                    headers: {
-                        Authorization: `Bearer ${this.config.apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: this.config.model,
-                        messages: [
-                            { role: 'system', content: request.system },
-                            { role: 'user', content: request.user }
-                        ],
-                        response_format: {
-                            type: 'json_schema',
-                            json_schema: { name: request.schemaName, strict: true, schema: request.schema }
-                        }
-                    })
-                });
-
-                if (!response.ok) {
-                    const retryable = response.status === 429 || response.status >= 500;
-                    let detail = `HTTP ${response.status}`;
-                    try {
-                        const body = (await response.json()) as { error?: { message?: string } };
-                        if (body.error?.message) {
-                            detail = body.error.message.slice(0, 300);
-                        }
-                    } catch {
-                        // Body was not JSON. The status alone is enough.
-                    }
-                    const error = new OpenAIError(detail, response.status, retryable);
-                    if (!retryable) {
-                        throw error;
-                    }
-                    lastError = error;
-                    continue;
+        return postJson<T>({
+            url: `${this.config.baseUrl}/chat/completions`,
+            apiKey: this.config.apiKey,
+            policy: this.config,
+            payload: {
+                model: this.config.model,
+                messages: [
+                    { role: 'system', content: request.system },
+                    { role: 'user', content: request.user }
+                ],
+                response_format: {
+                    type: 'json_schema',
+                    json_schema: { name: request.schemaName, strict: true, schema: request.schema }
                 }
-
-                const body = (await response.json()) as {
+            },
+            httpError: (status, body) => {
+                const message = (body as { error?: { message?: string } } | null)?.error?.message;
+                return new OpenAIError(message ? message.slice(0, 300) : `HTTP ${status}`, status, status === 429 || status >= 500);
+            },
+            parse: raw => {
+                const body = raw as {
                     choices?: { message?: { content?: string }; finish_reason?: string }[];
                     usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
                 };
@@ -168,16 +107,7 @@ export class OpenAIClient implements CompletionClient {
                     throw new OpenAIError('empty completion', 0, false);
                 }
                 return JSON.parse(content) as T;
-            } catch (err) {
-                if (err instanceof OpenAIError && !err.retryable) {
-                    throw err;
-                }
-                lastError = err instanceof Error ? err : new Error(String(err));
-            } finally {
-                clearTimeout(timer);
             }
-        }
-
-        throw lastError ?? new Error('request failed');
+        });
     }
 }

@@ -12,9 +12,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { annotateBlocks, annotatableBlocks } from '../annotate/llm';
-import { configFromEnv, OpenAIClient } from '../annotate/client';
-import { PROMPT_VERSION } from '../annotate/prompt';
+import { annotatableBlocks } from '../annotate/llm';
+import { AUTHORED_LABELS } from '../annotate/probabilities';
+import { provider as findProvider, PROVIDERS, type Annotator } from '../annotate/providers';
 import { annotatedPaths, finishAnnotationRun, startAnnotationRun, writeAnnotations, type AnnotationRow } from '../annotate/store';
 import { classifyBlocks } from '../classify/rules';
 import { CorpusStore } from '../corpus/store';
@@ -93,17 +93,24 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
         return 2;
     }
 
-    const model = flagString(args, 'model', 'gpt-5.6-sol');
+    const providerName = flagString(args, 'provider', 'openai');
+    const provider = findProvider(providerName);
+    if (!provider) {
+        process.stderr.write(`unknown provider: ${providerName}. Use one of ${Object.keys(PROVIDERS).join(', ')}\n`);
+        return 2;
+    }
+    const { promptVersion } = provider;
+    const model = flagString(args, 'model', provider.defaultModel);
     const limit = flagPositiveInt(args, 'sample', 25);
     const concurrency = flagPositiveInt(args, 'concurrency', 4);
     const traffic = flagString(args, 'traffic', 'human');
     const seed = flagString(args, 'seed', 'annotate');
     const dryRun = flagBool(args, 'dry-run', false);
 
-    let client: OpenAIClient | null = null;
+    let annotator: Annotator | null = null;
     if (!dryRun) {
         try {
-            client = new OpenAIClient(configFromEnv(model));
+            annotator = provider.create(model);
         } catch (err) {
             process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
             return 2;
@@ -123,7 +130,7 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
 
     // Resume is scoped to the current prompt version: labels made under an older prompt are
     // different data, and treating them as already-done made a version bump silently no-op.
-    const already = flagBool(args, 'resume', true) ? annotatedPaths(store, 'llm', model, PROMPT_VERSION) : new Set<string>();
+    const already = flagBool(args, 'resume', true) ? annotatedPaths(store, 'llm', model, promptVersion) : new Set<string>();
 
     // Deterministic selection: hash the path with the seed and take the lowest values, so the same
     // seed always picks the same messages regardless of database order.
@@ -187,14 +194,14 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
         return 1;
     }
 
-    process.stderr.write(`annotating ${selected.length} message(s) with ${model}, concurrency ${concurrency}\n`);
+    process.stderr.write(`annotating ${selected.length} message(s) with ${model} (${providerName}, ${promptVersion}), concurrency ${concurrency}\n`);
     if (already.size) {
         process.stderr.write(`skipping ${already.size} already annotated by this model\n`);
     }
 
     // A dry run must leave no trace in the database: an empty annotation_runs row looks like an
     // interrupted run to anything auditing the run history.
-    const runId = dryRun ? -1 : startAnnotationRun(store, { source: 'llm', model, promptVersion: PROMPT_VERSION });
+    const runId = dryRun ? -1 : startAnnotationRun(store, { source: 'llm', model, promptVersion });
 
     let failures = 0;
     let blockCount = 0;
@@ -225,7 +232,7 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
 
         let result;
         try {
-            result = await annotateBlocks(client as OpenAIClient, prepared.blocks, prepared.isReply);
+            result = await (annotator as Annotator).annotate(prepared.blocks, prepared.isReply);
         } catch (err) {
             failures++;
             process.stderr.write(`  failed: ${err instanceof Error ? err.message.slice(0, 120) : 'unknown'}\n`);
@@ -253,7 +260,8 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
                 confidence: label.confidence,
                 baselineLabel: decision?.label ?? null,
                 baselineConfidence: decision?.confidence ?? null,
-                baselineReasons: decision?.reasons ?? []
+                baselineReasons: decision?.reasons ?? [],
+                probabilities: label.probabilities ?? null
             });
         }
 
@@ -262,23 +270,27 @@ export async function annotateCommand(args: ParsedArgs): Promise<number> {
         }
     });
 
+    const usage = annotator?.usage;
     if (!dryRun) {
         writeAnnotations(store, runId, rows);
         finishAnnotationRun(store, runId, {
             messages: messageCount,
             blocks: blockCount,
             failures,
-            promptTokens: client?.usage.promptTokens ?? 0,
-            completionTokens: client?.usage.completionTokens ?? 0
+            promptTokens: usage?.promptTokens ?? 0,
+            completionTokens: usage?.completionTokens ?? 0
         });
     }
 
     const elapsed = (Date.now() - started) / 1000;
     process.stderr.write(`done in ${elapsed.toFixed(1)}s, ${messageCount} messages, ${blockCount} blocks, ${failures} failures\n`);
-    if (client) {
-        process.stderr.write(
-            `tokens: ${client.usage.promptTokens} prompt + ${client.usage.completionTokens} completion over ${client.usage.requests} requests\n`
-        );
+    if (usage) {
+        process.stderr.write(`tokens: ${usage.promptTokens} prompt + ${usage.completionTokens} completion over ${usage.requests} requests\n`);
+        if (messageCount) {
+            process.stderr.write(
+                `per message: ${Math.round(usage.promptTokens / messageCount)} prompt tokens, ${((1000 * elapsed) / messageCount).toFixed(0)} ms wall time\n`
+            );
+        }
     }
 
     if (dryRun) {
@@ -343,8 +355,8 @@ export function renderAgreement(store: CorpusStore, runId: number): string {
     out.push('');
 
     // The asymmetric cost cell: the baseline hid or collapsed something the model calls authored.
-    const hidden = rows.filter(row => row.baseline_label === 'REPLY_HISTORY' && (row.label === 'NEW_CONTENT' || row.label === 'INLINE_QUOTE'));
-    const shown = rows.filter(row => row.label === 'REPLY_HISTORY' && (row.baseline_label === 'NEW_CONTENT' || row.baseline_label === 'INLINE_QUOTE'));
+    const hidden = rows.filter(row => row.baseline_label === 'REPLY_HISTORY' && AUTHORED_LABELS.has(row.label));
+    const shown = rows.filter(row => row.label === 'REPLY_HISTORY' && row.baseline_label !== null && AUTHORED_LABELS.has(row.baseline_label));
 
     out.push('ASYMMETRIC COST VIEW');
     out.push(

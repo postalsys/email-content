@@ -6,9 +6,26 @@ follows from that.
 
 ## Configured exception: LLM annotation
 
-`email-content annotate` sends message block text to an OpenAI API endpoint. It is the only part of
-the project that leaves the machine, it is opt in, it fails closed when no key is configured, and
-`extract()` and the corpus scanner cannot reach it.
+`email-content annotate` sends message block text to an LLM API. It is the only part of the project
+that leaves the machine, it is opt in, it fails closed when no key is configured, and `extract()`
+and the corpus scanner cannot reach it.
+
+Two providers are configured, and each is a separate third party receiving private block text:
+
+| provider              | selected by                       | key                | endpoint                                                  |
+| --------------------- | --------------------------------- | ------------------ | --------------------------------------------------------- |
+| OpenAI                | `--provider openai` (the default) | `OPENAI_API_KEY`   | `OPENAI_BASE_URL`                                         |
+| TypeSafe (System One) | `--provider typesafe`             | `TYPESAFE_API_KEY` | `TYPESAFE_BASE_URL`, default `https://api.typesafe.ai/v1` |
+
+Both send exactly the same payload: block text capped at 700 characters, at most 60 blocks, quote
+depth per block and a reply flag. The TypeSafe request carries it as structured JSON state rather
+than a prompt, and adds only fixed question text. TypeSafe states that it does not train on customer
+data; zero data retention is offered on enterprise plans only, so without one assume the same
+retention exposure as any other API. The TypeSafe client's error messages carry the HTTP status
+only, never the response body, because a validation error may echo the request state back.
+
+Each provider fails closed independently: selecting TypeSafe without `TYPESAFE_API_KEY` exits
+before any message is read, and never falls back to OpenAI or the reverse.
 
 What this means in practice, stated plainly so it is not discovered later:
 

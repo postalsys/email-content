@@ -157,5 +157,19 @@ CREATE INDEX annotations_run    ON annotations(run_id);
 CREATE INDEX annotations_source ON annotations(source);
 CREATE INDEX annotations_agree  ON annotations(agrees);
 `
+    },
+    {
+        version: 3,
+        name: 'annotation-probabilities',
+        sql: `
+-- Full label distribution per block, as JSON, from annotators that return one. The stored label is
+-- a decision rule applied to it, so keeping the distribution lets the rule change without paying
+-- for inference again. Null for annotators that only return a label.
+ALTER TABLE annotations ADD COLUMN probabilities TEXT;
+-- Gap between the two most probable labels, derived from probabilities at write time. A column
+-- rather than a read time computation so review triage can ORDER BY it with a LIMIT, instead of
+-- loading and parsing every disagreement to rank them.
+ALTER TABLE annotations ADD COLUMN margin REAL;
+`
     }
 ];
