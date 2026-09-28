@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/postalsys/email-content/compare/v0.1.7...v0.1.8) (2026-09-28)
+
+
+### Bug Fixes
+
+* expose the canonical text that segment offsets index into ([7cb4e70](https://github.com/postalsys/email-content/commit/7cb4e70d9c32a66f99475331f0701e9ab95fbacb))
+
 ## [0.1.7](https://github.com/postalsys/email-content/compare/v0.1.6...v0.1.7) (2026-09-15)
 
 
