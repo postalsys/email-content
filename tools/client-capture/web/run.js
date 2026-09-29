@@ -16,9 +16,11 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
 const { chromium } = require('playwright');
-const { ethereal, waitForCapture } = require('../lib/mailbox');
+const { STATE_DIR, ethereal, waitForCapture } = require('../lib/mailbox');
+const { args } = require('../lib/cli');
+const { typeLines } = require('../lib/keyboard');
 const { buildScenario } = require('../lib/scenario');
-const { score } = require('../lib/score');
+const { formatBad, score } = require('../lib/score');
 const { writeFixture } = require('../lib/fixtures');
 const { accountAddress, uploadSeed } = require('./emailengine');
 const SERVICES = require('./services');
@@ -32,29 +34,18 @@ const WORDS = {
     send: /^(send|saada|senden|envoyer|enviar|invia|verzenden|wyślij|отправить|发送|傳送|送信|보내기|skicka|lähetä|sūtīt|siųsti|odeslat|küldés|gönder|αποστολή|надіслати)\b/i
 };
 
-function args() {
-    const out = {};
-    const argv = process.argv.slice(2);
-    for (let i = 0; i < argv.length; i++) {
-        if (argv[i].startsWith('--')) {
-            out[argv[i].slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true;
-        }
-    }
-    return out;
-}
-
 /** Visible element whose accessible name, title or own text matches, innermost first. */
-async function clickByName(page, regex, options = {}) {
+async function clickByName(page, regex) {
     // Controls can live in any frame; try the top document first.
     for (const frame of [page.mainFrame(), ...page.frames().filter(frame => frame !== page.mainFrame())]) {
-        if (await clickInFrame(frame, regex, options).catch(() => false)) {
+        if (await clickInFrame(frame, regex).catch(() => false)) {
             return true;
         }
     }
     return false;
 }
 
-async function clickInFrame(frame, regex, options = {}) {
+async function clickInFrame(frame, regex) {
     // Role and title locators pierce shadow DOM, which several webmails use for toolbars.
     for (const locator of [
         frame.getByRole('button', { name: regex }),
@@ -80,14 +71,14 @@ async function clickInFrame(frame, regex, options = {}) {
             }
         }
     }
-    return clickInDocument(frame, regex, options);
+    return clickInDocument(frame, regex);
 }
 
-async function clickInDocument(page, regex, { within } = {}) {
+async function clickInDocument(page, regex) {
     const handle = await page.evaluateHandle(
-        ([source, flags, scope]) => {
+        ([source, flags]) => {
             const re = new RegExp(source, flags);
-            const root = (scope && document.querySelector(scope)) || document;
+            const root = document;
             const visible = el => {
                 const rect = el.getBoundingClientRect();
                 return rect.width > 0 && rect.height > 0 && getComputedStyle(el).visibility !== 'hidden';
@@ -104,7 +95,7 @@ async function clickInDocument(page, regex, { within } = {}) {
                 );
             return candidates.find(el => nameOf(el).some(name => re.test(name))) || null;
         },
-        [regex.source, regex.flags, within || null]
+        [regex.source, regex.flags]
     );
     const element = handle.asElement();
     if (!element) {
@@ -154,7 +145,6 @@ const OVERRIDES = {
     gmail: {
         search: tag => `https://mail.google.com/mail/u/0/#search/${tag}`
     },
-    'outlook-com': {},
     yahoo: {
         search: tag => `https://mail.yahoo.com/d/search/keyword=${tag}`
     },
@@ -200,7 +190,7 @@ async function openSeed(page, service, scenario) {
     throw new Error(`seed ${scenario.subjectTag} never appeared in the ${service.id} UI`);
 }
 
-async function respond(page, service, scenario) {
+async function respond(page, scenario) {
     const kind = scenario.name === 'forward' ? 'forward' : 'reply';
     if (!(await clickByName(page, WORDS[kind]))) {
         // Forward often sits in a "more actions" menu next to reply.
@@ -222,24 +212,7 @@ async function respond(page, service, scenario) {
         await page.waitForTimeout(500);
     }
     const editor = await findEditor(page, kind === 'forward' ? scenario.forwardTo : null);
-    await editor.evaluate(el => {
-        el.focus();
-        if (el.tagName === 'TEXTAREA') {
-            el.setSelectionRange(0, 0);
-            return;
-        }
-        const range = el.ownerDocument.createRange();
-        range.selectNodeContents(el);
-        range.collapse(true);
-        const selection = el.ownerDocument.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-    });
-    for (const line of scenario.typed.lines) {
-        await page.keyboard.type(line);
-        await page.keyboard.press('Enter');
-    }
-    await page.keyboard.press('Enter');
+    await typeLines(page, editor, scenario.typed.lines, 'above');
     await page.keyboard.press('Meta+Enter');
     await page.waitForTimeout(3000);
     // If the editor is still there, the shortcut did not send: use the button.
@@ -273,7 +246,7 @@ async function main() {
             try {
                 await uploadSeed(service.account, scenario.seed);
                 await openSeed(page, service, scenario);
-                await respond(page, service, scenario);
+                await respond(page, scenario);
                 const raw = await waitForCapture(capture, scenario, 180000);
                 const result = await score(raw, scenario.expected);
                 writeFixture({
@@ -282,18 +255,14 @@ async function main() {
                     compose: 'html',
                     scenario,
                     raw,
-                    result,
                     meta: { clientVersion: 'web', capturedAt: new Date().toISOString().slice(0, 10) }
                 });
-                const bad = result.tokens.filter(item => item.outcome !== 'ok');
                 summary.push({ label, ok: result.ok });
-                console.log(
-                    `${result.ok ? 'ok  ' : 'FAIL'} ${label}${bad.length ? '  ' + bad.map(b => `${b.token.slice(0, 3)}:${b.outcome}(${b.actual})`).join(' ') : ''}`
-                );
+                console.log(`${result.ok ? 'ok  ' : 'FAIL'} ${label}  ${formatBad(result)}`.trimEnd());
             } catch (err) {
                 summary.push({ label, ok: false });
                 console.log(`ERR  ${label}  ${err.message.split('\n')[0]}`);
-                await page.screenshot({ path: path.join(__dirname, '..', '.state', `web-${service.id}-${runId}.png`) }).catch(() => {});
+                await page.screenshot({ path: path.join(STATE_DIR, `web-${service.id}-${runId}.png`) }).catch(() => {});
             }
         }
     }

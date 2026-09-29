@@ -11,19 +11,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { score } = require('./lib/score');
-const { FIXTURE_ROOT } = require('./lib/fixtures');
-
-function* walk(dir) {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-            yield* walk(full);
-        } else if (entry.name.endsWith('.eml')) {
-            yield full;
-        }
-    }
-}
+const { formatBad, score } = require('./lib/score');
+const { FIXTURE_ROOT, walkFixtures } = require('./lib/fixtures');
 
 async function main() {
     const verbose = process.argv.includes('--verbose');
@@ -31,8 +20,7 @@ async function main() {
     const byClient = {};
     let files = 0;
     let hidden = 0;
-    for (const file of walk(FIXTURE_ROOT)) {
-        const meta = JSON.parse(fs.readFileSync(file.replace(/\.eml$/, '.expected.json'), 'utf8'));
+    for (const { file, meta } of walkFixtures()) {
         const result = await score(fs.readFileSync(file), meta.expected);
         files++;
         const client = (byClient[meta.client] ||= { files: 0, ok: 0 });
@@ -43,8 +31,7 @@ async function main() {
             hidden += item.outcome === 'content-hidden' ? 1 : 0;
         }
         if (verbose && !result.ok) {
-            const bad = result.tokens.filter(item => item.outcome !== 'ok');
-            console.log(`${path.relative(FIXTURE_ROOT, file)}  ${bad.map(b => `${b.token.slice(0, 3)}:${b.outcome}(${b.actual}/${b.visibility})`).join(' ')}`);
+            console.log(`${path.relative(FIXTURE_ROOT, file)}  ${formatBad(result)}`);
         }
     }
     console.log(`\n${files} fixtures`);

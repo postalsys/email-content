@@ -59,6 +59,8 @@ const TRACE_HEADERS = new RegExp(
             'x-yandex-.*',
             'x-zimbra-.*',
             'feedback-id',
+            // Microsoft sensitivity labels carry the tenant id when set.
+            'msip_labels',
             'thread-index'
         ].join('|') +
         ')$',
@@ -89,7 +91,7 @@ function sanitize(raw) {
     return Buffer.from(kept.join('\r\n') + body, 'binary');
 }
 
-function writeFixture({ client, locale, compose, scenario, raw, meta, result }) {
+function writeFixture({ client, locale, compose, scenario, raw, meta }) {
     const dir = path.join(FIXTURE_ROOT, client, locale);
     fs.mkdirSync(dir, { recursive: true });
     const base = `${scenario.name}-${compose}`;
@@ -98,19 +100,25 @@ function writeFixture({ client, locale, compose, scenario, raw, meta, result }) 
         path.join(dir, `${base}.expected.json`),
         JSON.stringify({ client, locale, compose, scenario: scenario.name, ...meta, expected: scenario.expected }, null, 4) + '\n'
     );
-    return { file: path.join(dir, `${base}.eml`), ok: result.ok };
 }
 
-/** Re-apply sanitize() to every fixture already written, after the header list grows. */
-function resanitizeAll(dir = FIXTURE_ROOT) {
+/** Every captured fixture under `dir`, with its metadata. */
+function* walkFixtures(dir = FIXTURE_ROOT) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-            resanitizeAll(full);
+            yield* walkFixtures(full);
         } else if (entry.name.endsWith('.eml')) {
-            fs.writeFileSync(full, sanitize(fs.readFileSync(full)));
+            yield { file: full, meta: JSON.parse(fs.readFileSync(full.replace(/\.eml$/, '.expected.json'), 'utf8')) };
         }
     }
 }
 
-module.exports = { FIXTURE_ROOT, sanitize, writeFixture, resanitizeAll };
+/** Re-apply sanitize() to every fixture already written, after the header list grows. */
+function resanitizeAll() {
+    for (const { file } of walkFixtures()) {
+        fs.writeFileSync(file, sanitize(fs.readFileSync(file)));
+    }
+}
+
+module.exports = { FIXTURE_ROOT, writeFixture, walkFixtures, resanitizeAll };

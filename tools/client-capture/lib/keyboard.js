@@ -8,8 +8,10 @@
 
 const { editPlain, editHtmlInline } = require('./edit');
 
-async function typeLines(page, editor, lines, placement) {
-    const isTextarea = await editor.evaluate(el => el.tagName === 'TEXTAREA');
+async function typeLines(page, editor, lines, placement, isTextarea) {
+    if (isTextarea === undefined) {
+        isTextarea = await editor.evaluate(el => el.tagName === 'TEXTAREA');
+    }
     await editor.click();
     // Place the caret with the Selection API rather than key chords: clients bind chords like
     // Cmd+ArrowDown to their own actions (SnappyMail minimises the compose window on it).
@@ -55,7 +57,7 @@ async function writeScenario(page, editor, scenario, placement) {
     const isTextarea = await editor.evaluate(el => el.tagName === 'TEXTAREA');
     if (scenario.inline && scenario.inline.length) {
         if (isTextarea) {
-            await editor.evaluate(editPlain, { lines: [], inline: scenario.inline });
+            await editor.evaluate(editPlain, scenario.inline);
         } else {
             await editor.evaluate(
                 (el, [src, inline]) => {
@@ -68,7 +70,7 @@ async function writeScenario(page, editor, scenario, placement) {
         }
         return;
     }
-    await typeLines(page, editor, scenario.typed.lines, placement);
+    await typeLines(page, editor, scenario.typed.lines, placement, isTextarea);
 }
 
 module.exports = { typeLines, writeScenario };

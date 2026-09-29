@@ -146,11 +146,6 @@ function buildScenario(name, options) {
     for (const tok of Object.values(seedTokens)) {
         expect(tok, [EXPECTATIONS[name].H1 || (name === 'forward' ? 'FORWARDED_CONTENT' : 'REPLY_HISTORY')]);
     }
-    if (name === 'forward') {
-        for (const tok of Object.values(seedTokens)) {
-            expected[tok] = ['FORWARDED_CONTENT'];
-        }
-    }
     if (inline) {
         expect(seedTokens.a, ['INLINE_QUOTE']);
         expect(seedTokens.b, ['INLINE_QUOTE']);
@@ -175,8 +170,7 @@ function buildScenario(name, options) {
         seed,
         typed,
         inline,
-        forwardTo: options.forwardTo,
-        expectations: EXPECTATIONS[name]
+        forwardTo: options.forwardTo
     };
 }
 

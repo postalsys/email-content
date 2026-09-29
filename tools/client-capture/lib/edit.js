@@ -8,28 +8,21 @@
  * never rewrite the quote itself, so the quoting structure stays the client's own.
  */
 
-/** Plain text compose: a textarea. Runs in the page. */
-function editPlain(el, { lines, inline }) {
-    let value = el.value.replace(/\r\n/g, '\n');
-    if (inline && inline.length) {
-        const rows = value.split('\n');
-        for (const item of inline) {
-            let i = rows.findIndex(row => row.includes(item.after));
-            if (i === -1) {
-                throw new Error(`inline anchor ${item.after} not found`);
-            }
-            // The token may sit on the first line of a wrapped paragraph: answer after the whole paragraph.
-            while (i + 1 < rows.length && /^>+ ?\S/.test(rows[i + 1])) {
-                i++;
-            }
-            rows.splice(i + 1, 0, '', item.text, '');
+/** Plain text compose, inline answers: a textarea. Runs in the page. */
+function editPlain(el, inline) {
+    const rows = el.value.replace(/\r\n/g, '\n').split('\n');
+    for (const item of inline) {
+        let i = rows.findIndex(row => row.includes(item.after));
+        if (i === -1) {
+            throw new Error(`inline anchor ${item.after} not found`);
         }
-        value = rows.join('\n');
-    } else if (lines && lines.length) {
-        const caret = typeof el.selectionStart === 'number' ? el.selectionStart : 0;
-        value = value.slice(0, caret) + lines.join('\n') + value.slice(caret);
+        // The token may sit on the first line of a wrapped paragraph: answer after the whole paragraph.
+        while (i + 1 < rows.length && /^>+ ?\S/.test(rows[i + 1])) {
+            i++;
+        }
+        rows.splice(i + 1, 0, '', item.text, '');
     }
-    el.value = value;
+    el.value = rows.join('\n');
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -69,12 +62,22 @@ function editHtmlInline(root, inline) {
             outer = outer.parentElement.closest('blockquote');
         }
         quote = outer;
-        while (child.parentElement !== quote) {
-            child = child.parentElement;
+        // Walk nodes, not elements: when a client converts plain text to HTML the quote holds text
+        // nodes and <br>s directly, with no paragraph element to split after.
+        child = node;
+        while (child.parentNode !== quote) {
+            child = child.parentNode;
+        }
+        // For inline content, the paragraph runs to the next blank line, a <br><br> pair.
+        let end = child;
+        if (child.nodeType === Node.TEXT_NODE || child.nodeName === 'BR') {
+            while (end.nextSibling && !(end.nextSibling.nodeName === 'BR' && end.nextSibling.nextSibling && end.nextSibling.nextSibling.nodeName === 'BR')) {
+                end = end.nextSibling;
+            }
         }
         const rest = quote.cloneNode(false);
-        while (child.nextSibling) {
-            rest.appendChild(child.nextSibling);
+        while (end.nextSibling) {
+            rest.appendChild(end.nextSibling);
         }
         const answer = doc.createElement('p');
         answer.textContent = item.text;

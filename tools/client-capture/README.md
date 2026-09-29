@@ -45,9 +45,12 @@ settings survive reruns. `--debug` saves a screenshot for every failure there.
 
 Client specific notes, each learned the hard way:
 
-- **Roundcube** only picks up a language at login, and saving a settings page writes the session's
-  language back. The driver sets `users.language` in the container's SQLite database and logs in
-  again, then checks the active locale before every capture.
+- **Roundcube** only picks up a language at login, and once any preference has been saved the
+  stored preferences carry a language that wins over the `users.language` column. The driver writes
+  both into the container's SQLite database, logs in again, checks the active locale, then saves
+  compose preferences in that session and verifies the editor mode when compose opens, failing
+  rather than typing into the wrong editor. Run it with `--workers 1`: parallel workers contend on
+  that one SQLite file and language changes get lost.
 - **SnappyMail** opens replies to HTML mail in the rich editor whatever the default, so plain text
   mode switches the compose window's own editor selector. Cmd+ArrowDown minimises its compose window,
   which is why caret placement uses the Selection API rather than key chords.

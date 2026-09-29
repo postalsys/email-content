@@ -14,20 +14,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { score } = require('./lib/score');
-const { FIXTURE_ROOT } = require('./lib/fixtures');
+const { walkFixtures } = require('./lib/fixtures');
 const { findTokens } = require('./lib/scenario');
-const { extract } = require(path.join(__dirname, '..', '..', 'dist', 'index.js'));
-
-function* walk(dir) {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-            yield* walk(full);
-        } else if (entry.name.endsWith('.eml')) {
-            yield full;
-        }
-    }
-}
 
 /** The non empty line above the first token of a role, in the canonical text the library saw. */
 function boundaryLine(text, role) {
@@ -60,8 +48,7 @@ function outcomeOf(result) {
 async function main() {
     const clients = new Map();
     const boundaries = [];
-    for (const file of walk(FIXTURE_ROOT)) {
-        const meta = JSON.parse(fs.readFileSync(file.replace(/\.eml$/, '.expected.json'), 'utf8'));
+    for (const { file, meta } of walkFixtures()) {
         const raw = fs.readFileSync(file);
         const result = await score(raw, meta.expected);
         const outcome = outcomeOf(result);
@@ -74,8 +61,7 @@ async function main() {
             stats.outcomes.set(key, (stats.outcomes.get(key) || 0) + 1);
             const role = meta.scenario === 'forward' ? 'F' : 'H1';
             // Canonical text per MIME part; use whichever part holds the role's tokens.
-            const { canonicalText } = await extract(raw);
-            const texts = Object.values(canonicalText || {}).filter(text => findTokens(text).some(found => found.role === role));
+            const texts = Object.values(result.canonicalText).filter(text => findTokens(text).some(found => found.role === role));
             const line = texts.map(text => boundaryLine(text, role)).find(Boolean) || null;
             if (line) {
                 boundaries.push({ client: meta.client, locale: meta.locale, scenario: meta.scenario, compose: meta.compose, outcome, line });

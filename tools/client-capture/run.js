@@ -16,21 +16,11 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
 const { chromium } = require('playwright');
-const { ethereal, appendSeed, waitForCapture, withImap } = require('./lib/mailbox');
+const { STATE_DIR, ethereal, appendSeed, waitForCapture, withImap } = require('./lib/mailbox');
+const { args } = require('./lib/cli');
 const { buildScenario } = require('./lib/scenario');
-const { score } = require('./lib/score');
+const { formatBad, score } = require('./lib/score');
 const { writeFixture } = require('./lib/fixtures');
-
-function args() {
-    const out = {};
-    const argv = process.argv.slice(2);
-    for (let i = 0; i < argv.length; i++) {
-        if (argv[i].startsWith('--')) {
-            out[argv[i].slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true;
-        }
-    }
-    return out;
-}
 
 const PLACEMENT = { reply: 'above', 'reply-below': 'below', 'reply-inline': 'below', 'reply-nested': 'above', forward: 'above' };
 
@@ -46,46 +36,69 @@ async function seedUid(account, scenario) {
     });
 }
 
+/**
+ * A browser page logged in as the account a job should use.
+ *
+ * Drivers that set `perLocaleAccount` get a fresh account and a browser context whose locale
+ * matches the job, because some clients (Roundcube) only take a user's language from the browser
+ * when the user is first created and cannot be switched reliably afterwards.
+ */
+async function sessionFor(browser, driver, account, locale, shared) {
+    if (!driver.perLocaleAccount) {
+        return { page: shared, account, close: async () => {} };
+    }
+    const jobAccount = await ethereal(`${driver.name}-${locale}`);
+    const context = await browser.newContext({ viewport: { width: 1400, height: 900 }, locale: locale.replace(/_/g, '-'), ...(driver.pageOptions || {}) });
+    const page = await context.newPage();
+    return { page, account: jobAccount, close: () => context.close() };
+}
+
 async function worker(driver, account, jobs, opts, summary) {
     const browser = await chromium.launch({ headless: !opts.headed });
-    const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, ...(driver.pageOptions || {}) });
-    await driver.login(page, account);
-    const clientVersion = driver.version ? await driver.version(page) : 'unknown';
-    for (;;) {
-        const job = jobs.shift();
-        if (!job) {
-            break;
-        }
-        const { locale, compose, name } = job;
-        const runId = crypto.randomBytes(5).toString('hex');
-        const scenario = buildScenario(name, { runId, to: account.user, forwardTo: 'jaan.tamm@example.com' });
-        const label = `${driver.name} ${locale} ${compose} ${name}`;
-        try {
-            await driver.login(page, account);
-            await driver.configure(page, { locale, compose, placement: PLACEMENT[name] });
-            const uid = await seedUid(account, scenario);
-            await driver.respond(page, { uid, scenario, compose, placement: PLACEMENT[name] });
-            const raw = await waitForCapture(account, scenario);
-            const result = await score(raw, scenario.expected);
-            writeFixture({
-                client: driver.name,
-                locale,
-                compose,
-                scenario,
-                raw,
-                result,
-                meta: { clientVersion, capturedAt: new Date().toISOString().slice(0, 10) }
-            });
-            const bad = result.tokens.filter(item => item.outcome !== 'ok');
-            summary.push({ label, ok: result.ok, bad });
-            console.log(
-                `${result.ok ? 'ok  ' : 'FAIL'} ${label}${bad.length ? '  ' + bad.map(b => `${b.token.slice(0, 3)}:${b.outcome}(${b.actual})`).join(' ') : ''}`
-            );
-        } catch (err) {
-            summary.push({ label, ok: false, error: err.message });
-            console.log(`ERR  ${label}  ${err.message.split('\n')[0]}`);
-            if (opts.debug) {
-                await page.screenshot({ path: path.join(__dirname, '.state', `err-${runId}.png`) }).catch(() => {});
+    const shared = driver.perLocaleAccount ? null : await browser.newPage({ viewport: { width: 1400, height: 900 }, ...(driver.pageOptions || {}) });
+    let clientVersion = 'unknown';
+    if (shared) {
+        await driver.login(shared, account);
+        clientVersion = driver.version ? await driver.version(shared) : 'unknown';
+    }
+    // Jobs arrive grouped by locale, and a worker takes a whole group: with per locale accounts,
+    // two workers on one locale would change the same account's preferences under each other.
+    for (let group = jobs.shift(); group; group = jobs.shift()) {
+        for (const { locale, compose, name } of group) {
+            const runId = crypto.randomBytes(5).toString('hex');
+            const label = `${driver.name} ${locale} ${compose} ${name}`;
+            const session = await sessionFor(browser, driver, account, locale, shared);
+            const { page } = session;
+            try {
+                const scenario = buildScenario(name, { runId, to: session.account.user, forwardTo: 'jaan.tamm@example.com' });
+                await driver.login(page, session.account);
+                await driver.configure(page, { locale, compose });
+                if (clientVersion === 'unknown' && driver.version) {
+                    clientVersion = await driver.version(page);
+                    await driver.login(page, session.account);
+                }
+                const uid = await seedUid(session.account, scenario);
+                await driver.respond(page, { uid, scenario, compose, placement: PLACEMENT[name] });
+                const raw = await waitForCapture(session.account, scenario);
+                const result = await score(raw, scenario.expected);
+                writeFixture({
+                    client: driver.name,
+                    locale,
+                    compose,
+                    scenario,
+                    raw,
+                    meta: { clientVersion, capturedAt: new Date().toISOString().slice(0, 10) }
+                });
+                summary.push({ label, ok: result.ok });
+                console.log(`${result.ok ? 'ok  ' : 'FAIL'} ${label}  ${formatBad(result)}`.trimEnd());
+            } catch (err) {
+                summary.push({ label, ok: false });
+                console.log(`ERR  ${label}  ${err.message.split('\n')[0]}`);
+                if (opts.debug) {
+                    await page.screenshot({ path: path.join(STATE_DIR, `err-${runId}.png`) }).catch(() => {});
+                }
+            } finally {
+                await session.close();
             }
         }
     }
@@ -120,11 +133,13 @@ async function main() {
 
     const jobs = [];
     for (const locale of locales) {
+        const group = [];
         for (const compose of composes) {
             for (const name of scenarios) {
-                jobs.push({ locale, compose, name });
+                group.push({ locale, compose, name });
             }
         }
+        jobs.push(group);
     }
     const summary = [];
     await Promise.all(accounts.map(account => worker(driver, account, jobs, opts, summary)));
