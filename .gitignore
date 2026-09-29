@@ -18,3 +18,6 @@ docs/corpus-report.md
 .env
 .env.*
 !.env.example
+
+# Client capture harness: account credentials, browser profiles and raw captures before review.
+tools/client-capture/.state/

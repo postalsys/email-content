@@ -1,0 +1,13 @@
+{
+    "name": "email-content-client-capture",
+    "private": true,
+    "description": "Drives real mail clients against Ethereal accounts to capture reply and forward structure as labelled fixtures",
+    "type": "commonjs",
+    "scripts": {
+        "capture": "node run.js"
+    },
+    "dependencies": {
+        "imapflow": "2.1.2",
+        "playwright": "1.63.0"
+    }
+}

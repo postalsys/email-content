@@ -1,0 +1,27 @@
+# Self hosted webmail clients, each pointed at Ethereal's IMAP and SMTP. Ports bind to 127.0.0.1
+# only. Nothing here stores mail: every message lives in the Ethereal account.
+name: email-content-clients
+services:
+    roundcube:
+        image: roundcube/roundcubemail:latest
+        ports: ['127.0.0.1:8101:80']
+        environment:
+            ROUNDCUBEMAIL_DEFAULT_HOST: ssl://imap.ethereal.email
+            ROUNDCUBEMAIL_DEFAULT_PORT: '993'
+            ROUNDCUBEMAIL_SMTP_SERVER: tls://smtp.ethereal.email
+            ROUNDCUBEMAIL_SMTP_PORT: '587'
+            ROUNDCUBEMAIL_DB_TYPE: sqlite
+            ROUNDCUBEMAIL_SKIN: elastic
+    snappymail:
+        image: djmaze/snappymail:latest
+        ports: ['127.0.0.1:8102:8888']
+        environment:
+            SECURE_COOKIES: 'false'
+        volumes:
+            - ./snappymail/ethereal.email.json:/var/lib/snappymail/_data_/_default_/domains/ethereal.email.json
+    cypht:
+        image: cypht/cypht:latest
+        ports: ['127.0.0.1:8103:80']
+        # php-fpm clears the process environment, so Cypht reads only its .env file.
+        volumes:
+            - ./cypht.env:/usr/local/share/cypht/.env
