@@ -20,20 +20,9 @@ import { CorpusStore } from '../corpus/store';
 import { corpusThreadResolver } from '../corpus/thread-index';
 import { evaluate, type EvaluationReport, type LabelledBlock } from '../eval/metrics';
 import { parseMessage } from '../mime/parse';
-import { blockIndexOf, LABELS, mimePartOf, type Label } from '../types';
+import { loadReference, segmentLookup, type ReferenceRow } from '../eval/reference';
+import { LABELS } from '../types';
 import { flagBool, flagNonNegativeInt, flagString, type ParsedArgs } from './args';
-
-interface ReferenceRow {
-    path: string;
-    block_index: number;
-    /** MIME part the block came from. Null on annotations made before it was recorded. */
-    mime_part: string | null;
-    label: Label;
-    char_count: number;
-    client: string | null;
-    lang: string | null;
-    reply_style: string | null;
-}
 
 function pct(value: number): string {
     return `${(100 * value).toFixed(1)}%`;
@@ -127,42 +116,12 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
         return 2;
     }
 
-    // Latest annotation per (path, block) for the chosen model, so re-annotated messages do not
-    // count twice. An explicit --prompt-version pins the reference to labels made under one
-    // convention; without it, the newest label per block wins, whatever prompt produced it, and
-    // messages labelled only under an older convention are still included. The annotation guide's
-    // rule that runs made under different conventions must never be silently compared is the
-    // reason the flag exists; use it whenever more than one prompt version is present.
-    const versionClause = promptVersion ? ' AND r.prompt_version = ?' : '';
-    const versionClauseInner = promptVersion ? ' AND r2.prompt_version = ?' : '';
-    const params: string[] = promptVersion ? [model, promptVersion, promptVersion] : [model];
-    const reference = store.query<ReferenceRow>(
-        `SELECT a.path, a.block_index, a.mime_part, a.label, a.char_count, m.client, m.lang, m.reply_style
-         FROM annotations a
-         JOIN annotation_runs r ON r.id = a.run_id
-         JOIN messages m ON m.path = a.path
-         WHERE r.model = ? AND a.source = 'llm'${versionClause}
-           AND a.id = (SELECT MAX(a2.id) FROM annotations a2
-                       JOIN annotation_runs r2 ON r2.id = a2.run_id
-                       WHERE a2.path = a.path AND a2.block_index = a.block_index AND r2.model = r.model${versionClauseInner})
-         ORDER BY a.path, a.block_index`,
-        ...params
-    );
-
-    if (!reference.length) {
+    // See loadReference for why an explicit --prompt-version matters when several are present.
+    const byPath = loadReference(store, model, promptVersion);
+    if (!byPath.size) {
         process.stderr.write(`no annotations found for model ${model}. Run "annotate" first.\n`);
         store.close();
         return 2;
-    }
-
-    const byPath = new Map<string, ReferenceRow[]>();
-    for (const row of reference) {
-        const list = byPath.get(row.path);
-        if (list) {
-            list.push(row);
-        } else {
-            byPath.set(row.path, [row]);
-        }
     }
 
     const paths = [...byPath.keys()].slice(0, limit || undefined);
@@ -205,47 +164,7 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
             continue;
         }
 
-        // Map every reference block to the prediction covering it. Segments merge adjacent blocks,
-        // so a block is matched by its index falling inside a segment's block range.
-        //
-        // Keyed per MIME part, not by block index alone. Block indices are section-local, so in a
-        // multipart message with several body sections two segments legitimately start at index 0,
-        // and a flat map silently kept only the last of them. Older annotations predate the part
-        // being recorded; those fall back to a single unnamed bucket, which is exactly the previous
-        // behaviour for the single section messages they came from.
-        const predictions = new Map<string, Map<number, { label: Label; hidden: boolean }>>();
-        const bucketFor = (part: string) => {
-            let bucket = predictions.get(part);
-            if (!bucket) {
-                bucket = new Map();
-                predictions.set(part, bucket);
-            }
-            return bucket;
-        };
-        for (const segment of [...result.segments, ...result.hiddenSegments]) {
-            const blockIndex = blockIndexOf(segment.source);
-            if (blockIndex !== null) {
-                bucketFor(mimePartOf(segment.source) ?? '').set(blockIndex, { label: segment.type, hidden: segment.visibility === 'hide' });
-            }
-        }
-        const ordered = new Map([...predictions].map(([part, bucket]) => [part, [...bucket.keys()].sort((a, b) => a - b)]));
-
-        // Segments start at a block index and run to the next one, so fill forward within the part.
-        const lookup = (part: string | null, index: number): { label: Label; hidden: boolean } | null => {
-            // An annotation with no recorded part matches whichever part the output actually used,
-            // which for a single section message is the only one there is.
-            const key = part !== null && predictions.has(part) ? part : (predictions.keys().next().value ?? '');
-            const starts = ordered.get(key) ?? [];
-            let best: number | null = null;
-            for (const start of starts) {
-                if (start <= index) {
-                    best = start;
-                } else {
-                    break;
-                }
-            }
-            return best === null ? null : (predictions.get(key)?.get(best) ?? null);
-        };
+        const lookup = segmentLookup(result.segments, result.hiddenSegments);
 
         const first = references[0];
         const group =

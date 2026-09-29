@@ -120,6 +120,9 @@ export interface AnalyzeResult extends ContentAnalysisResult {
         primaryPart: string | null;
         blocks: {
             index: number;
+            /** MIME part and section-local index, the coordinates stored annotations use. */
+            mimePart: string;
+            sourceIndex: number;
             kind: string;
             label: string;
             confidence: number;
@@ -658,6 +661,8 @@ function buildDiagnostics(blocks: readonly Block[], decisions: ReturnType<typeof
         primaryPart: blocks[0]?.mimePart ?? null,
         blocks: decisions.map(decision => ({
             index: decision.block.index,
+            mimePart: decision.block.mimePart,
+            sourceIndex: decision.block.sourceIndex ?? decision.block.index,
             kind: decision.block.kind,
             label: decision.label,
             confidence: decision.confidence,

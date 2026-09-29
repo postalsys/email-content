@@ -191,6 +191,39 @@ The disagreement list did its job on the first run of 20 messages.
    Left alone deliberately: tuning that rule on a single example from 20 messages would be
    overfitting. It is a Phase 4 question.
 
+## Pattern precision audit
+
+`evaluate` says how the extractor does overall; `audit` says which pattern or rule to fix. It
+re-runs the current extractor over every annotated message and groups the reference labels two
+ways:
+
+```bash
+email-content audit --model gpt-5.6-sol --prompt-version annotate-v4 --history
+```
+
+- **Evidence**: every block a detector pattern fired on, whatever the rules then did with it. This
+  is the pattern's own precision, scored against the labels its evidence kind implies (a reply
+  anchor should sit on `REPLY_HISTORY`, a forward anchor on `FORWARDED_CONTENT` or on a forward
+  nested in history). Signature and disclaimer hits inside quoted history leave the denominator,
+  because the guide labels a quoted sign-off as history and the pattern was right about the shape.
+- **Reasons**: every block whose final decision names a reason, scored against the label that
+  decision assigned. For hiding reasons this is the region, not just the boundary line.
+
+Rows are ranked by authored characters the extractor hid (`lost`), then by authored hits. It prints
+pattern ids, reason codes and counts only, and makes no network calls.
+
+On the reference set (452 messages, 8,342 aligned blocks, gpt-5.6-sol with history) no pattern and
+no rule hid a single authored block. What remains is tidiness, and three rows explain most of it:
+
+| row                                               | reading                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `forward_by_subject -> FORWARDED_CONTENT`, 0%     | An artefact. The annotator never sees the subject (see "What is sent"), so a `Fwd:` message whose client wrote a reply style header block can only look like reply history to it. 30 of the 31 messages are that; the 31st is an annotator error (a comment-less forward labelled `NEW_CONTENT`). Collapsing instead of hiding is the safe direction. |
+| `* -> INLINE_QUOTE`, about 50%                    | Quoted text next to authored text is kept visible as inline context, and the annotator calls roughly half of it history. Costs visible history, never content.                                                                                                                                                                                        |
+| `signature_position_and_length -> SIGNATURE`, 82% | 23 authored blocks collapsed as a signature. `signature:dash_run` is the weakest signature pattern (25% outside history).                                                                                                                                                                                                                             |
+
+Rerun it after any pattern file edit: a new pattern that lands on authored text shows up as its own
+row before it moves the aggregate numbers.
+
 ## Cost
 
 | run                       | messages | blocks | prompt tokens | completion tokens |

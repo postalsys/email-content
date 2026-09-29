@@ -43,7 +43,7 @@ convenience:
 | `libmime` | Header encoded-word decoding, charset handling and `format=flowed` unfolding. |
 | `node-html-parser` | A forgiving HTML parser that exposes a source `range` on every node, which is what lets an HTML block point back at the offsets it came from. |
 
-The corpus tooling shipped in the same package (`corpus`, `annotate`, `evaluate`, `benchmark`)
+The corpus tooling shipped in the same package (`corpus`, `annotate`, `evaluate`, `audit`, `benchmark`)
 needs **Node 22.5 or later**, because it uses the built in `node:sqlite`. That module is loaded
 lazily, so it never touches a host that only calls `analyze()` or `extract()`. Running those
 commands on an older runtime reports the requirement rather than failing obscurely.

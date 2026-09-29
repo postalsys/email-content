@@ -72,6 +72,13 @@ Commands:
     --group-by <field>        client, lang or reply-style (default client)
     --json                    Emit the full report as JSON
 
+  audit                       Per pattern and per rule precision against an annotated reference set
+    --model <id>              Reference annotations from this model (default gpt-5.6-sol)
+    --prompt-version <v>      Restrict to one prompt version
+    --history                 Resolve thread history from the corpus while auditing
+    --min <n>                 Hide rows with fewer blocks unless they lost content (default 5)
+    --json                    Emit the full report as JSON
+
   version                     Print version information
 
 Privacy: no command prints message bodies, subjects or addresses.
@@ -109,6 +116,10 @@ async function main(argv: readonly string[]): Promise<number> {
         case 'evaluate': {
             const { evaluateCommand } = await import('./evaluate');
             return evaluateCommand({ ...args, positional: args.positional.slice(1) });
+        }
+        case 'audit': {
+            const { auditCommand } = await import('./audit');
+            return auditCommand({ ...args, positional: args.positional.slice(1) });
         }
         case 'version':
             process.stdout.write(`extractor ${EXTRACTOR_VERSION}, processing ${PROCESSING_VERSION}, node ${process.version}\n`);

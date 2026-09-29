@@ -57,6 +57,9 @@ export interface ExplainedResult extends ExtractionResult {
         primaryPart: string | null;
         blocks: {
             index: number;
+            /** MIME part and section-local index, the coordinates stored annotations use. */
+            mimePart: string;
+            sourceIndex: number;
             kind: string;
             label: string;
             confidence: number;
