@@ -6,23 +6,23 @@ client, labelled automatically by sentinel tokens (see `tools/client-capture/REA
 
 | client       | fixtures | fully correct | locales |
 | ------------ | -------: | ------------: | ------: |
-| cypht        |       39 |             4 |      14 |
-| fastmail     |        3 |             2 |       1 |
+| cypht        |       39 |            16 |      14 |
+| fastmail     |        3 |             3 |       1 |
 | gmail        |        3 |             3 |       1 |
 | gmx          |        2 |             0 |       1 |
 | icloud       |        3 |             3 |       1 |
-| lark         |        3 |             0 |       1 |
+| lark         |        3 |             1 |       1 |
 | outlook-com  |        2 |             2 |       1 |
 | outlook-m365 |        2 |             1 |       1 |
 | owa-exchange |        2 |             2 |       1 |
 | proton       |        3 |             3 |       1 |
-| roundcube    |      345 |            98 |      86 |
-| snappymail   |      154 |            43 |      37 |
+| roundcube    |      345 |           134 |      86 |
+| snappymail   |      154 |            53 |      37 |
 | yahoo        |        2 |             2 |       1 |
 | yandex       |        3 |             1 |       1 |
-| zimbra-ovh   |        3 |             2 |       1 |
-| zoho         |        3 |             2 |       1 |
-| **all**      |  **572** |       **168** |         |
+| zimbra-ovh   |        3 |             3 |       1 |
+| zoho         |        3 |             3 |       1 |
+| **all**      |  **572** |       **230** |         |
 
 ## Failure modes by client
 
@@ -33,19 +33,12 @@ coming back hidden, `mislabel` is a wrong visible label, `history-visible` is hi
 
 | scenario and outcome                                             | fixtures |
 | ---------------------------------------------------------------- | -------: |
-| forward text: content-hidden: FORWARDED_CONTENT as REPLY_HISTORY |       12 |
 | reply html: history-visible: REPLY_HISTORY as NEW_CONTENT        |       11 |
 | reply text: history-visible: REPLY_HISTORY as UNKNOWN            |        8 |
 | reply-below html: history-visible: REPLY_HISTORY as NEW_CONTENT  |        1 |
 | reply-inline html: mislabel: INLINE_QUOTE as NEW_CONTENT         |        1 |
 | reply-inline text: mislabel: INLINE_QUOTE as REPLY_HISTORY       |        1 |
 | reply-nested html: history-visible: REPLY_HISTORY as NEW_CONTENT |        1 |
-
-### fastmail
-
-| scenario and outcome                                             | fixtures |
-| ---------------------------------------------------------------- | -------: |
-| forward html: content-hidden: FORWARDED_CONTENT as REPLY_HISTORY |        1 |
 
 ### gmx
 
@@ -58,7 +51,6 @@ coming back hidden, `mislabel` is a wrong visible label, `history-visible` is hi
 
 | scenario and outcome                                             | fixtures |
 | ---------------------------------------------------------------- | -------: |
-| forward html: content-hidden: FORWARDED_CONTENT as REPLY_HISTORY |        1 |
 | reply html: history-visible: REPLY_HISTORY as NEW_CONTENT        |        1 |
 | reply-nested html: history-visible: REPLY_HISTORY as NEW_CONTENT |        1 |
 
@@ -70,31 +62,27 @@ coming back hidden, `mislabel` is a wrong visible label, `history-visible` is hi
 
 ### roundcube
 
-| scenario and outcome                                             | fixtures |
-| ---------------------------------------------------------------- | -------: |
-| forward html: mislabel: FORWARDED_CONTENT as SIGNATURE           |       62 |
-| forward text: mislabel: FORWARDED_CONTENT as SIGNATURE           |       62 |
-| reply text: history-visible: REPLY_HISTORY as UNKNOWN            |       39 |
-| reply text: missing: NEW_CONTENT as MISSING                      |       36 |
-| forward html: mislabel: FORWARDED_CONTENT as REPLY_HISTORY       |       21 |
-| forward text: mislabel: FORWARDED_CONTENT as REPLY_HISTORY       |       14 |
-| forward text: content-hidden: FORWARDED_CONTENT as REPLY_HISTORY |       10 |
-| forward html: mislabel: NEW_CONTENT as REPLY_HISTORY             |        1 |
-| reply-inline html: mislabel: INLINE_QUOTE as REPLY_HISTORY       |        1 |
-| reply-inline text: mislabel: INLINE_QUOTE as REPLY_HISTORY       |        1 |
+| scenario and outcome                                       | fixtures |
+| ---------------------------------------------------------- | -------: |
+| forward html: mislabel: FORWARDED_CONTENT as SIGNATURE     |       62 |
+| forward text: mislabel: FORWARDED_CONTENT as SIGNATURE     |       62 |
+| reply text: history-visible: REPLY_HISTORY as UNKNOWN      |       39 |
+| reply text: missing: NEW_CONTENT as MISSING                |       36 |
+| forward text: missing: NEW_CONTENT as MISSING              |        9 |
+| forward html: mislabel: NEW_CONTENT as FORWARDED_CONTENT   |        1 |
+| reply-inline html: mislabel: INLINE_QUOTE as REPLY_HISTORY |        1 |
+| reply-inline text: mislabel: INLINE_QUOTE as REPLY_HISTORY |        1 |
 
 ### snappymail
 
-| scenario and outcome                                             | fixtures |
-| ---------------------------------------------------------------- | -------: |
-| reply text: history-visible: REPLY_HISTORY as UNKNOWN            |       28 |
-| reply html: history-visible: REPLY_HISTORY as UNKNOWN            |       26 |
-| forward text: mislabel: FORWARDED_CONTENT as NEW_CONTENT         |       23 |
-| forward html: mislabel: FORWARDED_CONTENT as SIGNATURE           |       22 |
-| forward html: content-hidden: FORWARDED_CONTENT as REPLY_HISTORY |        5 |
-| forward text: content-hidden: FORWARDED_CONTENT as REPLY_HISTORY |        5 |
-| reply-inline text: mislabel: INLINE_QUOTE as REPLY_HISTORY       |        1 |
-| forward html: mislabel: FORWARDED_CONTENT as NEW_CONTENT         |        1 |
+| scenario and outcome                                       | fixtures |
+| ---------------------------------------------------------- | -------: |
+| reply text: history-visible: REPLY_HISTORY as UNKNOWN      |       28 |
+| reply html: history-visible: REPLY_HISTORY as UNKNOWN      |       26 |
+| forward text: mislabel: FORWARDED_CONTENT as NEW_CONTENT   |       23 |
+| forward html: mislabel: FORWARDED_CONTENT as SIGNATURE     |       22 |
+| reply-inline text: mislabel: INLINE_QUOTE as REPLY_HISTORY |        1 |
+| forward html: mislabel: FORWARDED_CONTENT as NEW_CONTENT   |        1 |
 
 ### yandex
 
@@ -103,18 +91,6 @@ coming back hidden, `mislabel` is a wrong visible label, `history-visible` is hi
 | forward html: mislabel: FORWARDED_CONTENT as SIGNATURE |        1 |
 | reply html: history-visible: REPLY_HISTORY as UNKNOWN  |        1 |
 
-### zimbra-ovh
-
-| scenario and outcome                                             | fixtures |
-| ---------------------------------------------------------------- | -------: |
-| forward html: content-hidden: FORWARDED_CONTENT as REPLY_HISTORY |        1 |
-
-### zoho
-
-| scenario and outcome                                             | fixtures |
-| ---------------------------------------------------------------- | -------: |
-| forward html: content-hidden: FORWARDED_CONTENT as REPLY_HISTORY |        1 |
-
 ## Boundary lines the library did not act on
 
 The line directly above the first quoted or forwarded token in each failing fixture. These are
@@ -122,13 +98,10 @@ the attribution lines and forward headers to consider for `src/detect/patterns/*
 
 | client     | locale | scenario          | line                                                                                                                                                     |
 | ---------- | ------ | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| cypht      | az     | forward text      | `To: <xdiubvluefo5zkev@ethereal.email>`                                                                                                                  |
 | cypht      | az     | reply text        | `Tue, 29 Sep 2026 07:49:45 +0000 Marta Kask marta.kask@example.com bildirib`                                                                             |
-| cypht      | de     | forward text      | `To: <i5oucaeoh7v52wnu@ethereal.email>`                                                                                                                  |
 | cypht      | de     | reply text        | `Am Tue, 29 Sep 2026 08:09:34 +0000Marta Kask marta.kask@example.com sagte`                                                                              |
 | cypht      | en     | reply-inline text | `On Tue, 29 Sep 2026 07:47:21 +0000 Marta Kask marta.kask@example.com said`                                                                              |
 | cypht      | et     | reply text        | `Tue, 29 Sep 2026 08:07:45 +0000 Marta Kask marta.kask@example.com ütles`                                                                                |
-| cypht      | fa     | forward text      | `To: <sy34zn2tffdff3my@ethereal.email>`                                                                                                                  |
 | cypht      | fa     | reply text        | `در Tue, 29 Sep 2026 08:08:10 +0000 Marta Kask marta.kask@example.com گفت`                                                                               |
 | cypht      | it     | reply text        | `In data Tue, 29 Sep 2026 08:11:23 +0000Marta Kask marta.kask@example.com ha scritto`                                                                    |
 | cypht      | nl     | reply text        | `op Tue, 29 Sep 2026 08:06:55 +0000, Marta Kask marta.kask@example.com zei:`                                                                             |
@@ -141,18 +114,13 @@ the attribution lines and forward headers to consider for `src/detect/patterns/*
 | roundcube  | be_BE  | reply text        | `Marta Kask напісаў 2026-09-29 12:28:`                                                                                                                   |
 | roundcube  | bg_BG  | forward text      | `До: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                  |
 | roundcube  | bg_BG  | reply text        | `На 2026-09-29 12:28, Marta Kask написа:`                                                                                                                |
-| roundcube  | bn_BD  | forward text      | `প্রাপক: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                              |
 | roundcube  | br     | forward text      | `Da: <ukxllrdakie5ft26@ethereal.email>`                                                                                                                  |
 | roundcube  | cy_GB  | forward text      | `Derbyniwr: <ukxllrdakie5ft26@ethereal.email>`                                                                                                           |
-| roundcube  | de_CH  | forward text      | `An: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                  |
 | roundcube  | el_GR  | forward text      | `Παραλήπτης: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                          |
 | roundcube  | el_GR  | reply text        | `Στις 2026-09-29 11:47, Marta Kask έγραψε:`                                                                                                              |
-| roundcube  | en_US  | forward text      | `To: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                  |
 | roundcube  | en_US  | reply-inline text | `On 2026-09-29 11:42, Marta Kask wrote:`                                                                                                                 |
-| roundcube  | es_ES  | forward text      | `Destinatario: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                        |
 | roundcube  | eu_ES  | forward text      | `Nori: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                |
 | roundcube  | eu_ES  | reply text        | `2026-09-29 11:43 egunean, Marta Kask-(e)k idatzi du:`                                                                                                   |
-| roundcube  | fa_AF  | forward text      | `ګيرينده: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                             |
 | roundcube  | fi_FI  | forward text      | `Vastaanottaja: <ukxllrdakie5ft26@ethereal.email>`                                                                                                       |
 | roundcube  | fi_FI  | reply text        | `Marta Kask kirjoitti 2026-09-29 12:15:`                                                                                                                 |
 | roundcube  | fy_NL  | forward text      | `Oan: <ukxllrdakie5ft26@ethereal.email>`                                                                                                                 |
@@ -160,20 +128,16 @@ the attribution lines and forward headers to consider for `src/detect/patterns/*
 | roundcube  | gl_ES  | reply text        | `O 2026-09-29 11:46, Marta Kask escribiu:`                                                                                                               |
 | roundcube  | he_IL  | forward text      | `אל: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                  |
 | roundcube  | he_IL  | reply text        | `:כתב Marta Kask, 2026-09-29 12:30 בתאריך`                                                                                                               |
-| roundcube  | hi_IN  | forward text      | `पाने वाला: <obfatqz3xe53ryz2@ethereal.email>`                                                                                                           |
 | roundcube  | hr_HR  | forward text      | `Za: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                  |
 | roundcube  | hr_HR  | reply text        | `Dana 2026-09-29 12:31, Marta Kask je napisao(la):`                                                                                                      |
 | roundcube  | hu_HU  | forward text      | `Címzett: <m5wea52kbiv26y5e@ethereal.email>`                                                                                                             |
 | roundcube  | hu_HU  | reply text        | `2026-09-29 11:47 időpontban Marta Kask ezt írta:`                                                                                                       |
-| roundcube  | ia     | forward text      | `A: <obfatqz3xe53ryz2@ethereal.email>`                                                                                                                   |
 | roundcube  | id_ID  | reply text        | `Pada 2026-09-29 11:47, Marta Kask menulis:`                                                                                                             |
 | roundcube  | is_IS  | forward text      | `Til: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                 |
-| roundcube  | it_IT  | forward text      | `Destinatario: <ukxllrdakie5ft26@ethereal.email>`                                                                                                        |
 | roundcube  | ja_JP  | forward text      | `宛先: <ukxllrdakie5ft26@ethereal.email>`                                                                                                                |
 | roundcube  | ja_JP  | reply text        | `2026-09-29 12:33 に Marta Kask さんは書きました:`                                                                                                       |
 | roundcube  | ka_GE  | forward text      | `ვის: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                 |
 | roundcube  | ka_GE  | reply text        | `2026-09-29 11:46-ში, Marta Kask დაწერა:`                                                                                                                |
-| roundcube  | kab    | forward text      | `To: <m5wea52kbiv26y5e@ethereal.email>`                                                                                                                  |
 | roundcube  | km_KH  | forward text      | `អ្នកទទួល: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                            |
 | roundcube  | km_KH  | reply text        | `កាលពី​ថ្ងៃ 2026-09-29 12:33, Marta Kask បាន​សរសេរ៖`                                                                                                     |
 | roundcube  | kn_IN  | forward text      | `ಗೆ: <ukxllrdakie5ft26@ethereal.email>`                                                                                                                  |
@@ -187,17 +151,12 @@ the attribution lines and forward headers to consider for `src/detect/patterns/*
 | roundcube  | mk_MK  | reply text        | `На $дата,$праќач напиша:`                                                                                                                               |
 | roundcube  | mr_IN  | forward text      | `प्रती: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                               |
 | roundcube  | nb_NO  | forward text      | `Mottaker: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                            |
-| roundcube  | ne_NP  | forward text      | `प्रापक: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                              |
 | roundcube  | nl_NL  | forward text      | `Ontvanger: <ukxllrdakie5ft26@ethereal.email>`                                                                                                           |
 | roundcube  | nl_NL  | reply text        | `Marta Kask schreef op 2026-09-29 11:46:`                                                                                                                |
-| roundcube  | pl_PL  | forward text      | `Do: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                  |
-| roundcube  | ru_RU  | forward text      | `Кому: <ornstmyhhz24ujx3@ethereal.email>`                                                                                                                |
 | roundcube  | sl_SI  | reply text        | `2026-09-29 11:50, je Marta Kask napisal`                                                                                                                |
 | roundcube  | sq_AL  | reply text        | `Më 2026-09-29 12:36, Marta Kask shkroi:`                                                                                                                |
 | roundcube  | sr_CS  | reply text        | `Дана 2026-09-29 11:50, Marta Kask написа:`                                                                                                              |
 | roundcube  | zh_TW  | forward text      | `收件者: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                              |
-| roundcube  | ta_IN  | forward text      | `பெறுனர்: <ukxllrdakie5ft26@ethereal.email>`                                                                                                             |
-| roundcube  | tzl    | forward text      | `À: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                   |
 | roundcube  | uk_UA  | forward text      | `Кому: <x6bezqjkeizh6kjp@ethereal.email>`                                                                                                                |
 | roundcube  | vi_VN  | reply text        | `Vào ngày 2026-09-29 12:27, Marta Kask viết:`                                                                                                            |
 | snappymail | ar     | forward text      | `الموضوع: Quarterly figures cc4eff6a2f96`                                                                                                                |
@@ -216,7 +175,6 @@ the attribution lines and forward headers to consider for `src/detect/patterns/*
 | snappymail | eu     | reply text        | `September 29, 2026 at 10:02 AM, "Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40e...`        |
 | snappymail | fa     | forward text      | `موضوع: Quarterly figures ccade5198999`                                                                                                                  |
 | snappymail | fa     | reply text        | `۷ مهر ۱۴۰۵ ساعت ۱۰:۰۳, "Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40example.co...`        |
-| snappymail | fi     | forward text      | `Aihe: Quarterly figures cc0b5958d48b`                                                                                                                   |
 | snappymail | fr     | reply text        | `29 septembre 2026 à 10:04 "Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40example...`        |
 | snappymail | hu     | forward text      | `Tárgy: Quarterly figures cc7200eda24f`                                                                                                                  |
 | snappymail | hu     | reply text        | `2026. szeptember 29. 10:05, "Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40examp...`        |
@@ -234,18 +192,14 @@ the attribution lines and forward headers to consider for `src/detect/patterns/*
 | snappymail | nb     | forward text      | `Emne: Quarterly figures ccc37ab45595`                                                                                                                   |
 | snappymail | nb     | reply text        | `"Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40example.com%3E > skrev 29. septem...`        |
 | snappymail | nl     | reply text        | `"Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40example.com%3E > schreef op 29 se...`        |
-| snappymail | pl     | forward text      | `Temat: Quarterly figures cc8e56668f42`                                                                                                                  |
 | snappymail | pl     | reply text        | `29 września 2026 10:11, "Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40example.c...`        |
-| snappymail | pt     | forward text      | `Assunto: Quarterly figures ccf90bdfbb73`                                                                                                                |
 | snappymail | pt     | reply text        | `29 de setembro de 2026 às 10:12, "Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40...`        |
 | snappymail | pt-BR  | forward text      | `Assunto: Quarterly figures cc61d571bc92`                                                                                                                |
 | snappymail | ro     | forward text      | `Subiect: Quarterly figures cc2142f9832b`                                                                                                                |
 | snappymail | ro     | reply text        | `29 septembrie 2026 la 10:13, "Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40exam...`        |
-| snappymail | ru     | forward text      | `Тема: Quarterly figures ccc8227e4583`                                                                                                                   |
 | snappymail | sk     | forward text      | `Predmet: Quarterly figures cc72f0a7a0e7`                                                                                                                |
 | snappymail | sl     | forward text      | `Zadeva: Quarterly figures cc1c44501a13`                                                                                                                 |
 | snappymail | sl     | reply text        | `29. september 2026 ob 10:15, "Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40exam...`        |
-| snappymail | sv     | forward text      | `Ämne: Quarterly figures cc568124cf0b`                                                                                                                   |
 | snappymail | zh     | forward text      | `主题: Quarterly figures ccf84fe2ab87`                                                                                                                   |
 | snappymail | zh     | reply text        | `2026年9月29日 10:18, "Marta Kask" <marta.kask@example.com mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40example.com%3E ...`     |
 | snappymail | zh-TW  | forward text      | `主旨: Quarterly figures ccdbec911754`                                                                                                                   |

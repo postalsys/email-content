@@ -50,6 +50,13 @@ export interface ClassifyOptions {
      * and unlike a greeting phrase it is language independent.
      */
     senderTokens?: readonly string[];
+    /**
+     * The subject marks the message as a forward and not as a reply. Several clients introduce a
+     * forward with the same separators they use for reply history ("-------- Original Message
+     * --------", Outlook's #divRplyFwdMsg, quote containers), so without this the forwarded message
+     * is hidden as history. With it, whatever the reply rules call history is forwarded instead.
+     */
+    messageIsForward?: boolean;
 }
 
 /**
@@ -767,6 +774,23 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
 
     // Final guard: a message must never come out as nothing but its own footer.
     //
+    // In a forward, what the reply rules found is the forwarded message, not history. Several
+    // clients introduce a forward with the same markup they use for replies ("-------- Original
+    // Message --------", Outlook's #divRplyFwdMsg, quote containers), so without this the
+    // forwarded text is hidden. Relabelling at the end, rather than turning the anchor into a
+    // forward anchor, keeps everything the reply rules know about authored text after a quote:
+    // the anchor approach collapsed 48 reference NEW_CONTENT blocks that were visible before.
+    // This only ever turns hidden into collapsed. Measured on test/fixtures/clients: 144 tokens in
+    // 36 captured forwards were hidden before it, none after.
+    if (options.messageIsForward && forwardAnchor === -1) {
+        for (const decision of decisions) {
+            if (decision.label === 'REPLY_HISTORY') {
+                decision.label = 'FORWARDED_CONTENT';
+                decision.reasons = [...decision.reasons, 'forward_by_subject'];
+            }
+        }
+    }
+
     // The signature region can legitimately grow to cover everything a sender typed when the
     // message is short. That leaves a reader looking at a collapsed footer and no message, so if no
     // authored block survives, the footer is given back. Being wrong about a signature costs

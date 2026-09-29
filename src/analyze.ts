@@ -132,6 +132,15 @@ export interface AnalyzeResult extends ContentAnalysisResult {
 
 const REPLY_SUBJECT = /^\s*(re|aw|sv|vs|vast|antw|res|odp|ответ)\s*(\[\d+\])?\s*:/i;
 
+/**
+ * Subject prefixes that mark a forward. "Ed" is Outlook's Estonian prefix. Measured on 266 real
+ * forwards from 16 clients (test/fixtures/clients): every one used Fwd, Fw or Ed, whatever the
+ * interface language, and 250 of them also carried In-Reply-To or References, so headers cannot
+ * tell a forward from a reply. A reply to a forward reads "Re: Fwd:" and is caught by
+ * REPLY_SUBJECT first.
+ */
+const FORWARD_SUBJECT = /^\s*(fwd?|wg|tr|rv|enc|doorst|pd|ed|edasi|пересл[а-я]*|转发|轉寄|転送)\s*(\[\d+\])?\s*:/i;
+
 function contentChars(blocks: readonly Block[]): number {
     return blocks.reduce((sum, block) => sum + block.content.length, 0);
 }
@@ -431,6 +440,7 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
 
     const sections = limitSections(normaliseSections(content), maxContentChars, warnings);
     const isReply = Boolean(content.inReplyTo) || (content.references?.length ?? 0) > 0 || REPLY_SUBJECT.test(content.subject ?? '');
+    const messageIsForward = !REPLY_SUBJECT.test(content.subject ?? '') && FORWARD_SUBJECT.test(content.subject ?? '');
 
     const base = {
         originalAvailable: true as const,
@@ -527,7 +537,8 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
             config,
             historyMatchedIndices: matchedIndices(matches),
             historyStrongIndices: strongMatchedIndices(matches),
-            senderTokens
+            senderTokens,
+            messageIsForward
         });
 
         for (const section of segmented) {
@@ -551,7 +562,8 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
                       config,
                       historyMatchedIndices: matchedIndices(secondaryMatches),
                       historyStrongIndices: strongMatchedIndices(secondaryMatches),
-                      senderTokens
+                      senderTokens,
+                      messageIsForward
                   })
                 : null;
             reconcileSection(section.choice.primary.representation, slice, secondaryDecisions);

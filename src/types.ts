@@ -121,6 +121,7 @@ export type Reason =
     // structural anchors
     | 'preceded_by_reply_header'
     | 'preceded_by_forward_header'
+    | 'forward_by_subject'
     | 'inside_quote_container'
     | 'final_contiguous_quote_region'
     | 'no_new_content_after_region'
