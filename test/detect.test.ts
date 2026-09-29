@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fingerprintClient } from '../src/detect/client';
+import { detectAttributionLine } from '../src/detect/reply-header';
 import { assertPatternsLoaded, countPatterns, loadPatterns, patternSource, resetPatternCache } from '../src/detect/patterns';
 import * as publicApi from '../src/index';
 import { classifyTraffic } from '../src/detect/traffic';
@@ -230,5 +231,75 @@ describe('pattern loading is fail loud', () => {
         } finally {
             fs.rmSync(dir, { recursive: true, force: true });
         }
+    });
+});
+
+describe('attribution lines captured from real clients', () => {
+    // Each line is what a real client wrote above quoted history, from test/fixtures/clients.
+    // Every one was left unrecognised before, so the quoted reply stayed visible.
+    const captured = [
+        'El 2026-09-29 13:55, Marta Kask va escriure:',
+        'O 2026-09-29 11:46, Marta Kask escribiu:',
+        'Më 2026-09-29 12:36, Marta Kask shkroi:',
+        'На 2026-09-29 12:28, Marta Kask написа:',
+        'На $дата,$праќач напиша:',
+        'Dana 2026-09-29 12:31, Marta Kask je napisao(la):',
+        'Marta Kask напісаў 2026-09-29 12:28:',
+        'Στις 2026-09-29 11:47, Marta Kask έγραψε:',
+        '2026-09-29 11:43 egunean, Marta Kask-(e)k idatzi du:',
+        'Marta Kask kirjoitti 2026-09-29 12:15:',
+        'Marta Kask schreef op 2026-09-29 11:46:',
+        '"Marta Kask" <marta.kask@example.com> skrev 29. september 2026 kl. 10:10:',
+        '2026-09-29 11:47 időpontban Marta Kask ezt írta:',
+        'Pada 2026-09-29 11:47, Marta Kask menulis:',
+        '2026-09-29 12:33 に Marta Kask さんは書きました:',
+        '2026-09-29 11:46-ში, Marta Kask დაწერა:',
+        'កាលពី\u200bថ្ងៃ 2026-09-29 12:33, Marta Kask បាន\u200bសរសេរ៖',
+        'Marta Kask @ 2026-09-29 12:35 rakstīja:',
+        '2026-09-29 11:50, je Marta Kask napisal',
+        'Vào ngày 2026-09-29 12:27, Marta Kask viết:',
+        'كتب Marta Kask في 2026-09-29 11:43:',
+        ':כתב Marta Kask, 2026-09-29 12:30 בתאריך',
+        'Op 2026-09-29 13:56, skreau Marta Kask:',
+        '29 września 2026 10:11, "Marta Kask" <marta.kask@example.com> napisał/-a/:',
+        '2026年9月29日 10:18, "Marta Kask" <marta.kask@example.com> 写到:',
+        '۷ مهر ۱۴۰۵ ساعت ۱۰:۰۳, "Marta Kask" <marta.kask@example.com> نوشت:',
+        'Am Tue, 29 Sep 2026 08:09:34 +0000Marta Kask marta.kask@example.com sagte'
+    ];
+
+    it('recognises every captured format as an anchor', () => {
+        for (const line of captured) {
+            const evidence = detectAttributionLine(line);
+            assert.ok(evidence && evidence.strength >= 0.85, `not an anchor: ${line}`);
+        }
+    });
+
+    it('ignores the mailto URL SnappyMail writes into its plain text attribution', () => {
+        const line =
+            'Am 29. September 2026 um 10:00 schrieb "Marta Kask" <marta.kask@example.com ' +
+            'mailto:marta.kask@example.com?to=%22Marta%20Kask%22%20%3Cmarta.kask%40example.com%3E >:';
+        assert.ok(line.trim().length > 60);
+        assert.equal(detectAttributionLine(line)?.id, 'reply:am_x_schrieb_de');
+    });
+
+    it('does not anchor on prose that uses the same verbs', () => {
+        // No clock time, or no trailing colon: the shape of a sentence, not an attribution.
+        const prose = [
+            'Marta kirjoitti kokouksessa 12 kohtaa:',
+            'Jan schreef op 3 mei een brief aan de gemeente.',
+            'Hij schreef het volgende:',
+            'Ona napisała 3 punkty:',
+            'Il a écrit le rapport en 2024:',
+            'He said it would be fine at bob@example.com',
+            '我写到这里:'
+        ];
+        for (const line of prose) {
+            const evidence = detectAttributionLine(line);
+            assert.ok(!evidence || evidence.strength < 0.85, `prose anchored as attribution: ${line} (${evidence?.id})`);
+        }
+    });
+
+    it('rejects oversized lines before doing any work on them', () => {
+        assert.equal(detectAttributionLine(`${'mailto:x'.repeat(400)} wrote:`), null);
     });
 });

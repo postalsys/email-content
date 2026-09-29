@@ -364,7 +364,7 @@ function kindFor(nodes: readonly Node[], ancestors: readonly Ancestor[], text: s
         return 'reply_header';
     }
     // Clients that use no marker class still emit the attribution as its own short element.
-    if (text.length <= 300 && !text.includes('\n') && detectAttributionLine(text)) {
+    if (!text.includes('\n') && detectAttributionLine(text)) {
         return 'reply_header';
     }
     if (ancestors.some(ancestor => ancestor.element.rawTagName?.toLowerCase() === 'blockquote')) {
@@ -717,6 +717,12 @@ export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentat
     const lineTexts: string[] = [];
     const lineOwners: number[] = [];
     for (const block of blocks) {
+        // Whitespace-only blocks add no line of their own. GMX puts each header field in its own
+        // element with whitespace blocks between them, and a boundary for every one of those left
+        // gaps wider than the detector's rule allows, so its header block was never found.
+        if (block.features.isAllBlank) {
+            continue;
+        }
         for (const line of block.content.split('\n')) {
             lineTexts.push(line.trim());
             lineOwners.push(block.index);
@@ -788,12 +794,10 @@ export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentat
             RE_KINDABLE.has(block.kind) &&
             !block.evidence.some(item => item.kind === 'reply-anchor' || item.kind === 'attribution')
         ) {
-            const first = nonBlankLines[0] as string;
-            if (first.length <= 300) {
-                const attribution = detectAttributionLine(first);
-                if (attribution) {
-                    block.evidence.push(attribution);
-                }
+            // The detector owns the length limit, after dropping mailto URLs.
+            const attribution = detectAttributionLine(nonBlankLines[0] as string);
+            if (attribution) {
+                block.evidence.push(attribution);
             }
         }
 

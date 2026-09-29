@@ -23,6 +23,30 @@
             "pattern": "^\\s*-{2,}\\s*(Weitergeleitete Nachricht|Message transf.r.|Mensaje reenviado|Messaggio inoltrato|Doorgestuurd bericht|Edastatud kiri|Edasisaadetud (sõnumi|kirja).{0,20}|Пересылаемое сообщение)\\s*-{2,}\\s*$"
         },
         {
+            "id": "forwarded_message_localised_more",
+            "lang": "*",
+            "comment": "The 'Forwarded message' marker as SnappyMail translates it, collected from test/fixtures/clients.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*-{2,}\\s*(پیام ارسال شده|رسالة معاد توجيهها|전달된 메시지|Προωθημένο μήνυμα|Препратено съобщение|Переслане повідомлення|Перасланае паведамленне|转发邮件|転送されたメッセージ|Áframsend skilaboð|Birbidalitako mezua|Mensagem Encaminhada|Persiųstas pranešimas|Pesan terusan|Posredovano sporočilo|Preposlaná správa|Thư được chuyển tiếp|Továbbított üzenet|Videresendt meddelelse|Videresendt melding|Yönlendirilmiş İleti|轉寄郵件|Välitetty viesti|Wiadomość przekazana|Пересланное сообщение|Vidarebefordrat)\\s*-{2,}\\s*$"
+        },
+        {
+            "id": "beginning_of_forwarded_message",
+            "lang": "*",
+            "comment": "Yandex Mail's forward marker, in English and Russian: '-------- Beginning of forwarded message --------'.",
+            "strength": 0.97,
+            "flags": "i",
+            "pattern": "^\\s*-{2,}\\s*(Beginning of forwarded message|Начало переадресованного сообщения)\\s*-{2,}\\s*$"
+        },
+        {
+            "id": "begin_forwarded_message_dashed",
+            "lang": "*",
+            "comment": "Cypht's forward marker, translated with its interface: '----- begin forwarded message -----', '----- début du message transféré -----'. Collected from test/fixtures/clients/cypht.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*-{2,}\\s*(begin forwarded message|göndərilmiş mesajın başlanğıcı|Nachrichtweiterleiten beginnen|comenzar mensaje de reenvío|edastatud kirja algus|پیام ارسالی را شروع کنید|début du message transféré|Mulai pesan yang diteruskan|Begin geforward bericht|początek przekazanej wiadomości|iniciar mensagem encaminhada)\\s*-{2,}\\s*$"
+        },
+        {
             "id": "original_message_forward",
             "lang": "*",
             "strength": 0.9,

@@ -111,6 +111,25 @@ function isAnchorBlock(block: Block): boolean {
     return block.kind === 'reply_header' || block.kind === 'quoted_header_block';
 }
 
+/**
+ * Whether an embedded header block (From/Sent/To/Subject) follows within the next few non-blank
+ * blocks: the corroboration that turns a lone anchor into Outlook's unmarked history shape.
+ */
+function embeddedHeaderAfter(blocks: readonly Block[], start: number): boolean {
+    let seen = 0;
+    for (let i = start; i < blocks.length && seen < 4; i++) {
+        const block = blocks[i] as Block;
+        if (block.features.isAllBlank) {
+            continue;
+        }
+        seen++;
+        if (block.kind === 'quoted_header_block' || block.features.headerFieldLines >= 2) {
+            return true;
+        }
+    }
+    return false;
+}
+
 interface Run {
     start: number;
     end: number;
@@ -200,9 +219,10 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
     if (hasAttribution || hasBlockquote) {
         for (const block of blocks) {
             const container = strengthOf(block, ['quote-container']);
-            if (container >= config.minAnchorStrength && containerAnchor === -1) {
+            if (container >= config.minAnchorStrength) {
                 containerAnchor = block.index;
                 containerStrength = container;
+                break;
             }
         }
     }
@@ -431,11 +451,44 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
     const quotedRuns = runs.filter(run => run.quoted);
     const contentRunsAfterFirstQuote = runs.filter(run => !run.quoted && quotedRuns.length > 0 && run.start > (quotedRuns[0] as Run).start);
 
+    // Where unmarked history begins, if a separator or reply anchor is followed closely by an
+    // embedded header block, the Outlook shape. Paragraphs after that point are the previous
+    // message's body, not answers, even though nothing marks them as quoted. Without this, a
+    // quote nested inside that history (Outlook replying to a Gmail thread) made the unmarked
+    // paragraphs look like answers between two quoted runs, and the whole history stayed visible.
+    // Only when the sender wrote something above it. A message that opens with the separator has no
+    // reply of its own before the "history", so the history is the message: in the reference set,
+    // two such messages lost every authored block when this was unconditional.
+    const authoredBefore = (index: number): boolean => {
+        for (let i = 0; i < index; i++) {
+            const block = blocks[i] as Block;
+            if (hasWords(block) && !isQuote(block) && !isAnchorBlock(block) && decisions[i]?.label === 'NEW_CONTENT') {
+                return true;
+            }
+        }
+        return false;
+    };
+    const unmarkedHistoryStart = [separatorAnchor, replyAnchor]
+        .filter(index => index !== -1 && embeddedHeaderAfter(blocks, index) && authoredBefore(index))
+        .reduce((first, index) => Math.min(first, index), blocks.length);
+
     // Interleaved: more than one quoted run, with authored content between them. Every quoted run
     // is then context for the answer beside it, not disposable history.
     const interleaved =
         quotedRuns.length > 1 &&
         contentRunsAfterFirstQuote.some(run => {
+            if (run.start > unmarkedHistoryStart) {
+                return false;
+            }
+            // Likewise inside a trusted quote container: Lark keeps the previous message's body as
+            // plain paragraphs inside its history container, which are not answers either.
+            if (
+                containerAnchor !== -1 &&
+                run.start >= containerAnchor &&
+                strengthOf(blocks[run.start] as Block, ['quote-container']) >= config.minAnchorStrength
+            ) {
+                return false;
+            }
             for (let i = run.start; i <= run.end; i++) {
                 const decision = decisions[i];
                 const block = blocks[i];
@@ -582,19 +635,7 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
         // Corroboration: Outlook's shape is the separator followed closely by the embedded header
         // block. With it, this is safe to hide. Without it, the region is collapsed but stays
         // recoverable, because a lone anchor could in principle be text the sender typed.
-        let corroborated = false;
-        let seen = 0;
-        for (let i = replyAnchor; i < blocks.length && seen < 4; i++) {
-            const block = blocks[i] as Block;
-            if (block.features.isAllBlank) {
-                continue;
-            }
-            seen++;
-            if (block.kind === 'quoted_header_block' || block.features.headerFieldLines >= 2) {
-                corroborated = true;
-                break;
-            }
-        }
+        const corroborated = embeddedHeaderAfter(blocks, replyAnchor);
 
         const reasons: Reason[] = corroborated
             ? ['preceded_by_reply_header', 'contains_old_message_headers', 'no_new_content_after_region']
@@ -772,8 +813,6 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
         }
     }
 
-    // Final guard: a message must never come out as nothing but its own footer.
-    //
     // In a forward, what the reply rules found is the forwarded message, not history. Several
     // clients introduce a forward with the same markup they use for replies ("-------- Original
     // Message --------", Outlook's #divRplyFwdMsg, quote containers), so without this the
@@ -791,6 +830,8 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
         }
     }
 
+    // Final guard: a message must never come out as nothing but its own footer.
+    //
     // The signature region can legitimately grow to cover everything a sender typed when the
     // message is short. That leaves a reader looking at a collapsed footer and no message, so if no
     // authored block survives, the footer is given back. Being wrong about a signature costs

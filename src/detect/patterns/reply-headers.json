@@ -17,6 +17,14 @@
             "pattern": "^\\s*On\\s+.{3,200}?(\\b\\d{4}\\b|\\b\\d{1,2}:\\d{2}\\b).{0,80}[,:]?\\s*$"
         },
         {
+            "id": "on_weekday_wrote_nospace_en",
+            "lang": "en",
+            "comment": "Lark Mail drops the space after On: 'OnTue, Sep 29, 2026, 12:15 <address> wrote:'. Anchored on a weekday name so ordinary words starting with On do not match.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*On(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\w*,.{3,200}?\\bwrote\\s*:\\s*$"
+        },
+        {
             "id": "x_wrote_trailing",
             "lang": "en",
             "comment": "Attribution without an On prefix, such as 'Bob Smith wrote:'. The lookaheads reject first person prose like 'As I wrote:' or 'Like I wrote:', which is the sender talking about themselves, not a client inserted attribution.",
@@ -118,11 +126,371 @@
             "pattern": "^\\s*\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}.{0,120}<[^>]+@[^>]+>.{0,40}:\\s*$"
         },
         {
+            "id": "dmy_time_addr_colon",
+            "lang": "*",
+            "comment": "Yandex Mail's attribution: day first date, time, name and address, then a colon and no verb: '29.09.2026, 11:30, \"Marta Kask\" <address>:', or with the address in parentheses in a forward.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*\\d{1,2}\\.\\d{1,2}\\.\\d{4},\\s*\\d{1,2}:\\d{2},\\s*.{0,120}?(<[^>\\s]+@[^>\\s]+>|\\([^)\\s]+@[^)\\s]+\\))\\s*:\\s*$"
+        },
+        {
+            "id": "el_x_va_escriure_ca",
+            "lang": "ca",
+            "comment": "Catalan, as Roundcube writes it: 'El 2026-09-29 13:55, Marta Kask va escriure:'.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*El\\s+.{3,200}?va\\s+escriure\\s*:\\s*$"
+        },
+        {
+            "id": "o_x_escribiu_gl",
+            "lang": "gl",
+            "comment": "Galician, as Roundcube writes it: 'O 2026-09-29 11:46, Marta Kask escribiu:'.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*O\\s+.{3,200}?escribiu\\s*:\\s*$"
+        },
+        {
+            "id": "me_x_shkroi_sq",
+            "lang": "sq",
+            "comment": "Albanian, as Roundcube writes it: 'Më 2026-09-29 12:36, Marta Kask shkroi:'.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*Më\\s+.{3,200}?shkroi\\s*:\\s*$"
+        },
+        {
+            "id": "na_x_napisa_bg_sr_mk",
+            "lang": "*",
+            "comment": "Bulgarian, Serbian and Macedonian, as Roundcube writes them: 'На 2026-09-29 12:28, Marta Kask написа:', 'Дана ... написа:'. Roundcube's Macedonian template ships unfilled ('На $дата,$праќач напиша:') and is still an attribution.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*(На|Дана)\\s+.{3,200}?(написа|напиша)\\s*:\\s*$"
+        },
+        {
+            "id": "dana_x_je_napisao_hr",
+            "lang": "hr",
+            "comment": "Croatian, as Roundcube writes it: 'Dana 2026-09-29 12:31, Marta Kask je napisao(la):'.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*Dana\\s+.{3,200}?je\\s+napisao(\\(la\\)|la)?\\s*:\\s*$"
+        },
+        {
+            "id": "x_napisa_dated_cyrillic",
+            "lang": "*",
+            "comment": "Ukrainian, Belarusian, Bulgarian and Serbian without an opener, verb followed by an optional date: 'Marta Kask напісаў 2026-09-29 12:28:', '... \"Marta Kask\" <...> написа:'. Requires a clock time on the line, since the bare verb also occurs in prose.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(написав|напісаў|написал[аи]?|написа|напиша).{0,60}?\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_egrapse_el",
+            "lang": "el",
+            "comment": "Greek: 'Στις 2026-09-29 11:47, Marta Kask έγραψε:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?έγραψε\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_idatzi_eu",
+            "lang": "eu",
+            "comment": "Basque: '2026-09-29 11:43 egunean, Marta Kask-(e)k idatzi du:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(idatzi\\s+du|idatzia)\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_kirjoitti_dated_fi",
+            "lang": "fi",
+            "comment": "Finnish with the date after the verb: 'Marta Kask kirjoitti 2026-09-29 12:15:'. The older x_kirjoitti_fi only accepts the verb right before the colon. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?kirjoitti.{0,60}?\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_schreef_dated_nl",
+            "lang": "nl",
+            "comment": "Dutch without the Op opener: 'Marta Kask schreef op 2026-09-29 11:46:'. Requires a clock time on the line, since 'schreef' is ordinary prose.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?schreef.{0,80}?\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_skrev_dated_da_nb",
+            "lang": "*",
+            "comment": "Danish and Norwegian without the Den opener: '\"Marta Kask\" <...> skrev 29. september 2026 kl. 10:10:', including SnappyMail's doubled colon. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?skrev.{0,80}?\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_skrifadi_is",
+            "lang": "is",
+            "comment": "Icelandic: 'September 29, 2026 at 10:06 AM, skrifaði \"Marta Kask\" <...>:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?skrifaði.{0,80}?\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_irta_hu",
+            "lang": "hu",
+            "comment": "Hungarian: '2026-09-29 11:47 időpontban Marta Kask ezt írta:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(ezt\\s+)?írta\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_menulis_id",
+            "lang": "id",
+            "comment": "Indonesian: 'Pada 2026-09-29 11:47, Marta Kask menulis:', SnappyMail '... ditulis:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(menulis|ditulis)\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_kakimashita_ja",
+            "lang": "ja",
+            "comment": "Japanese: '2026-09-29 12:33 に Marta Kask さんは書きました:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(書きました|書き込みました)\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_dawera_ka",
+            "lang": "ka",
+            "comment": "Georgian: '2026-09-29 11:46-ში, Marta Kask დაწერა:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?დაწერა\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_sarser_km",
+            "lang": "km",
+            "comment": "Khmer, which ends the line with its own colon sign: 'កាលពី​ថ្ងៃ 2026-09-29 12:33, Marta Kask បាន​សរសេរ៖'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?បាន[​\\s]*សរសេរ\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_nivisi_ku",
+            "lang": "ku",
+            "comment": "Kurdish: 'Di 2026-09-29 11:48 de, şandyar nivîsî:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?nivîsî\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_rakstija_lv",
+            "lang": "lv",
+            "comment": "Latvian: 'Marta Kask @ 2026-09-29 12:35 rakstīja:', SnappyMail writes it without the macron. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?rakst[īi]ja\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_parase_lt",
+            "lang": "lt",
+            "comment": "Lithuanian: '2026 m. rugsėjo 29 d. 10:08, \"Marta Kask\" <...> parašė:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?parašė\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_napisal_dated_pl",
+            "lang": "pl",
+            "comment": "Polish without the W dniu opener: '29 września 2026 10:11, \"Marta Kask\" <...> napisał/-a/:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?napisał\\S*\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_napisal_sl",
+            "lang": "sl",
+            "comment": "Slovenian: '29. september 2026 ob 10:15, \"Marta Kask\" <...> je napisal/-a:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(je\\s+)?napisal\\S*\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_je_napisal_nocolon_sl",
+            "lang": "sl",
+            "comment": "Slovenian as Roundcube writes it, with no colon: '2026-09-29 11:50, je Marta Kask napisal'. Must start with the date, since without a colon the shape is otherwise ordinary prose.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*\\d{4}-\\d{2}-\\d{2}[ T]\\d{1,2}:\\d{2},\\s+je\\s+.{1,120}?\\s+napisal(a|\\/-a)?\\s*:?\\s*$"
+        },
+        {
+            "id": "x_viet_vi",
+            "lang": "vi",
+            "comment": "Vietnamese: 'Vào ngày 2026-09-29 12:27, Marta Kask viết:', SnappyMail '... đã viết là:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(viết|đã\\s+viết\\s+là)\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_escribio_dated_es",
+            "lang": "es",
+            "comment": "Spanish without the El opener: '29 de septiembre de 2026 a las 10:01, \"Marta Kask\" <...> escribió:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?escribi[oó]\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_escreveu_dated_pt",
+            "lang": "pt",
+            "comment": "Portuguese without the Em opener: '29 de setembro de 2026 às 10:12, \"Marta Kask\" <...> escreveu:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?escreveu\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_a_ecrit_dated_fr",
+            "lang": "fr",
+            "comment": "French without the Le opener: '29 septembre 2026 à 10:04 \"Marta Kask\" <...> a écrit:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?a\\s+écrit\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_scrive_dated_it",
+            "lang": "it",
+            "comment": "Italian without the Il opener: '29 settembre 2026 alle ore 10:07, \"Marta Kask\" <...> scrive:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(scrive|ha\\s+scritto)\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_a_scris_ro",
+            "lang": "ro",
+            "comment": "Romanian: '29 septembrie 2026 la 10:13, \"Marta Kask\" <...> a scris:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?a\\s+scris\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_yazdi_tr",
+            "lang": "tr",
+            "comment": "Turkish: '29 Eylül 2026 10:16, \"Marta Kask\" <...> yazdı:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?yazdı\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_bonaen_ko",
+            "lang": "ko",
+            "comment": "Korean: '2026년 9월 29일 오전 10:08에 \"Marta Kask\" <...>이(가) 보낸 메시지:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(보낸\\s*메시지|작성)\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_xiedao_zh",
+            "lang": "zh",
+            "comment": "Chinese, simplified and traditional, with an ASCII or full width colon: '2026年9月29日 10:18, \"Marta Kask\" <...> 写到:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(写到|寫到|写道|寫道)\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "x_nevesht_fa",
+            "lang": "fa",
+            "comment": "Persian: '۷ مهر ۱۴۰۵ ساعت ۱۰:۰۳, \"Marta Kask\" <...> نوشت:'. The digit lookahead accepts Persian and Arabic-Indic digits. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?نوشت\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "katab_x_ar",
+            "lang": "ar",
+            "comment": "Arabic, as Roundcube writes it, verb first: 'كتب Marta Kask في 2026-09-29 11:43:'.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*كتب\\s+.{1,160}?[0-9٠-٩].{0,60}:\\s*$"
+        },
+        {
+            "id": "katav_x_he",
+            "lang": "he",
+            "comment": "Hebrew, as Roundcube writes it, in logical order with the colon first: ':כתב Marta Kask, 2026-09-29 12:30 בתאריך'.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*:\\s*כתב\\s+.{1,160}?\\d{4}.{0,60}$"
+        },
+        {
+            "id": "x_skrivet_gant_br",
+            "lang": "br",
+            "comment": "Breton: \"D'an/ar 2026-09-29 13:54 eo bet skrivet gant Marta Kask:\". Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?skrivet\\s+gant.{1,120}?\\s*[:：៖]{1,2}\\s*$"
+        },
+        {
+            "id": "dated_addr_said_nocolon",
+            "lang": "*",
+            "comment": "Cypht's attribution: date, name, address, then a verb with no colon, in many languages ('said', 'sagte', 'a dit', 'mengatakan', 'napisał(a)', ...): 'Am Tue, 29 Sep 2026 08:09:34 +0000Marta Kask marta.kask@example.com sagte'. Requires both a date and an address on the line, since without a colon the verb alone is prose.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*\\d{1,2}:\\d{2})(?=[^@]*[^\\s@]@[^\\s@]+\\.[a-z]{2,}).{10,250}?\\s(said|sagte|ütles|ha scritto|disse|bildirib|گفت|zei|a scris|kirjutas|schreef|escribió|a écrit|a dit|mengatakan|napisał\\(a\\)|napisał)\\s*:?\\s*$"
+        },
+        {
+            "id": "op_x_skreau_fy",
+            "lang": "fy",
+            "comment": "Frisian, as Roundcube writes it: 'Op 2026-09-29 13:56, skreau Marta Kask:'.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*Op\\s+.{3,200}?skreau\\s+.{1,120}:\\s*$"
+        },
+        {
             "id": "original_message_separator",
             "lang": "*",
             "strength": 0.97,
             "flags": "i",
             "pattern": "^\\s*-{2,}\\s*(Original Message|Originalnachricht|Message d'origine|Mensaje original|Messaggio originale|Oorspronkelijk bericht|Algne teade|Исходное сообщение)\\s*-{2,}\\s*$"
+        },
+        {
+            "id": "x_wrote_dated_celtic_nordic_turkic",
+            "lang": "*",
+            "comment": "Welsh 'Ar 2026-09-29 14:04, ysgrifennodd Marta Kask:', Irish 'Ar an ..., scríobh Marta Kask:', Nynorsk 'Den ... skreiv Marta Kask:', Turkish '..., Marta Kask yazmış:', Uzbek 'Marta Kask yozgan kun 2026-09-29 14:04:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(ysgrifennodd|scríobh|skreiv|yazmış|yozgan).{0,80}?\\s*:\\s*$"
+        },
+        {
+            "id": "x_napsal_dated_cs_sk_az",
+            "lang": "*",
+            "comment": "Czech 'Dne 2026-09-29 14:24, Marta Kask napsal:', Slovak 'Dňa ... Marta Kask napísal(a):', Azerbaijani '2026-09-29 14:24 tarixdə, Marta Kask yazıb:'. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(napsal(a)?|napísal(\\(a\\)|a)?|yazıb)\\s*:\\s*$"
+        },
+        {
+            "id": "x_wrote_dated_more",
+            "lang": "*",
+            "comment": "More Roundcube translations: Bosnian 'je napisao/la:', Esperanto 'skribis:', Estonian '2026-09-29 14:26 kirjutas Marta Kask:', Persian 'نوشته است:', Faroese 'skrivaði Marta Kask:', Interlingua 'ha scribite:', Korean '쓴 내용:', Luxembourgish 'schreift:', Lithuanian 'rašė:', Marathi 'लिहीले :', Armenian 'գրեց.' (ending in a full stop), and Uyghur 'يازدى:', whose template ships unfilled. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(je\\s+napisao\\/la|skribis|kirjutas|نوشته\\s+است|skrivaði|ha\\s+scribite|쓴\\s*내용|schreift|rašė|लिहीले|գրեց|يازدى).{0,80}?\\s*[:.։]\\s*$"
+        },
+        {
+            "id": "pada_x_menulis_nocolon_ms",
+            "lang": "ms",
+            "comment": "Malay as Roundcube writes it, with no colon: 'Pada 2026-09-29 14:27, Marta Kask menulis'. Anchored on the opener and a timestamp, since without a colon the verb alone is prose.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*Pada\\s+\\d{4}-\\d{2}-\\d{2}[ T]\\d{1,2}:\\d{2},\\s+.{1,120}?\\s+menulis\\s*:?\\s*$"
+        },
+        {
+            "id": "roundcube_unfilled_template",
+            "lang": "*",
+            "comment": "Roundcube's Uyghur attribution template ships with its placeholders unfilled: 'date$ دا، sender$ يازدى:'. The literal placeholders cannot occur in prose.",
+            "strength": 0.95,
+            "flags": "",
+            "pattern": "^\\s*date\\$.{0,40}sender\\$.{0,60}:\\s*$"
+        },
+        {
+            "id": "original_message_separator_localised",
+            "lang": "*",
+            "comment": "The 'Original Message' separator as Roundcube and SnappyMail translate it, collected from test/fixtures/clients. Roundcube uses it to introduce forwards, which the classifier turns into forwarded content when the subject marks a forward.",
+            "strength": 0.97,
+            "flags": "i",
+            "pattern": "^\\s*-{2,}\\s*(원본 메시지|ಮೂಲ ಸಂದೇಶ|הודעה מקורית|Αρχικό μήνυμα|الرسالة الأساسية|Оригинална порака|ორიგინალი შეტყობინება|Оригінальне повідомлення|Арыгінальнае паведамленне|原始邮件|元のメッセージ|Alkuperäinen viesti|An teachtaireacht bhunaidh|Eredeti üzenet|Izvorna poruka|Jatorrizko mezua|Kemennadenn orin|Missatge Original|Neges Wreiddiol|Oarspronklik Berjocht|Oorspronkelijke bericht|Opprinnelig melding|Originalus laiškas|Orijinal məktub|Peyama orîjînal|Sākotnējā vēstule|Upprunaleg skilaboð|Mesajul original|खरा संदेश|Оригинално писмо|原始郵件|សារ​ដើម|Mensaxe orixinal|Originalna poruka|Původní zpráva|Original besked|Originala mesaĝo|Esialgne kiri|پیام اصلی|Uppruna boð|Courriel original|Առաջին հաղորդագրությունը|Message original|Pesan Asli|Original-Message|യഥാര്‍ഥ സന്ദേശം|യഥാര്‍ഥ സന്ദേശം|Mesej Asal|Orgineel bericht|Opphavleg melding|Wiadomość oryginalna|Mensagem original|Mesaj original|Pôvodná správa|Izvorno sporočilo|Mesazhi Origjinal|Оригинална порука|Ursprungligt meddelande|ข้อความเดิม|Özgün ileti|ئەسلىي خەت|Asl xat|Thư gốc)\\s*-{2,}\\s*$"
         },
         {
             "id": "reply_message_separator",

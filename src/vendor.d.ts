@@ -21,7 +21,6 @@ declare module 'libmime' {
         decodeHeader(headerLine: string): DecodedHeaderLine;
         decodeWords(str: string): string;
         parseHeaderValue(str: string): ParsedHeaderValue;
-        decodeFlowed(str: string, delSp?: boolean): string;
         normalizeCharset(charset: string): string;
         foldLines(str: string, lineLength?: number, afterSpace?: boolean): string;
     };

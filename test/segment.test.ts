@@ -242,3 +242,16 @@ describe('html segmentation', () => {
         assert.ok(last !== undefined && last.features.position < 0.75);
     });
 });
+
+describe('quote depth of plain text blocks', () => {
+    it('does not let a trailing empty quoted line pull an answer into the quote', () => {
+        // Inline replies from Roundcube and SnappyMail: an answer, a blank line, then "> " before
+        // the next quoted paragraph. The answer came back as quoted history before.
+        const text = 'On x wrote:\n> \n> Could you check the invoice.\n\nDone, the invoice is correct.\n\n> \n> Also the address.\n\nUpdated it.\n';
+        const blocks = segmentTextBlocks(text, 'TEXT').blocks.filter(block => !block.features.isAllBlank);
+        const depthOf = (needle: string) => blocks.find(block => block.content.includes(needle))?.features.quoteDepth;
+        assert.equal(depthOf('Done, the invoice'), 0);
+        assert.equal(depthOf('Updated it'), 0);
+        assert.equal(depthOf('Also the address'), 1);
+    });
+});

@@ -63,7 +63,18 @@ export interface ReplyHeaderMatch {
  * one is almost always a paragraph that happens to end in "wrote:".
  */
 export function detectAttributionLine(line: string): Evidence | null {
-    const trimmed = line.trim();
+    // Clients that derive plain text from HTML write links out as "mailto:" URLs, and SnappyMail
+    // puts one inside every attribution, fully URL encoded: '"Marta Kask" <marta@example.com
+    // mailto:marta@example.com?to=%22Marta...%3E > schrieb:'. The URL says nothing about the line's
+    // shape but pushes it past the length limits, so it is dropped before matching. The raw line is
+    // bounded first so the replace stays cheap on hostile input.
+    if (line.length > 2000) {
+        return null;
+    }
+    // Only lines that contain a URL pay for the replace, and it has no leading whitespace class:
+    // "\s*" before the literal was retried at every position of a long space run, quadratic in
+    // its length (1 MB of such lines blocked for over a second).
+    const trimmed = (/mailto:/i.test(line) ? line.replace(/ ?\bmailto:\S+/gi, '') : line).trim();
     if (!trimmed || trimmed.length > 300) {
         return null;
     }

@@ -148,6 +148,33 @@
             "prevalence": 0.002
         },
         {
+            "id": "gmx_sub_body_container",
+            "client": "gmx",
+            "role": "quote",
+            "strength": 0.95,
+            "selector": "div#sub-body-container",
+            "prevalence": 0,
+            "comment": "GMX and web.de webmail wrap the quoted message in this container, which opens with Sent/From/To/Subject lines, one per element. Not seen in the working corpus, hence prevalence 0; captured in test/fixtures/clients/gmx."
+        },
+        {
+            "id": "lark_history_quote",
+            "client": "lark",
+            "role": "quote",
+            "strength": 0.95,
+            "selector": "div.history-quote-wrapper",
+            "prevalence": 0,
+            "comment": "Lark Mail wraps quoted history in this container. Not seen in the working corpus; captured in test/fixtures/clients/lark."
+        },
+        {
+            "id": "lark_history_quote_meta",
+            "client": "lark",
+            "role": "attribution",
+            "strength": 0.95,
+            "selector": ".history-quote-meta-wrapper",
+            "prevalence": 0,
+            "comment": "Lark Mail's attribution box above quoted history, written 'OnTue, Sep 29, 2026, 12:15 <address> wrote:' with no space after On."
+        },
+        {
             "id": "zimbra_separator",
             "client": "zimbra",
             "role": "separator",

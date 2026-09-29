@@ -60,12 +60,22 @@ function contentOf(lines: readonly TextLine[]): string {
  */
 function maxDepth(lines: readonly TextLine[]): number {
     let depth = 0;
+    let blankDepth = 0;
+    let sawContent = false;
     for (const line of lines) {
-        if (line.depth > depth) {
-            depth = line.depth;
+        // Only lines with content decide a block's depth. An empty quoted line ("> ") trailing an
+        // unquoted paragraph belongs to the quote that follows, and counting it made an inline
+        // answer read as quoted text: the answer then came back as history. Measured on the
+        // Roundcube, SnappyMail and Cypht inline replies in test/fixtures/clients.
+        if (line.blank) {
+            blankDepth = Math.max(blankDepth, line.depth);
+        } else {
+            sawContent = true;
+            depth = Math.max(depth, line.depth);
         }
     }
-    return depth;
+    // A block of nothing but empty quoted lines keeps its quoting.
+    return sawContent ? depth : blankDepth;
 }
 
 function classifyKind(lines: readonly TextLine[], forced: BlockKind | undefined): BlockKind {

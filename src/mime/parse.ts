@@ -17,7 +17,7 @@
 
 import { Splitter } from '@zone-eu/mailsplit';
 import type MimeNodeType from '@zone-eu/mailsplit/lib/mime-node';
-import libmime from 'libmime';
+import { decodeFlowed } from './flowed';
 import { type Warning } from '../types';
 import { decodeCharset } from './charset';
 import { extractMessageHeaders, parseHeaderValueSafe, toHeaderEntries } from './headers';
@@ -101,7 +101,7 @@ async function decodeTextPart(pending: PendingPart, maxBytes: number, warnings: 
     let text = decoded.text;
     if (part.flowed && part.contentType === 'text/plain') {
         try {
-            text = libmime.decodeFlowed(text, part.delSp);
+            text = decodeFlowed(text, part.delSp);
         } catch {
             // Keep the unfolded text. A failed flowed decode is cosmetic, never a reason to lose content.
         }

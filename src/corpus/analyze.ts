@@ -15,6 +15,7 @@ import { classifyTraffic, type TrafficClass } from '../detect/traffic';
 import { type MimePart, type ParsedMessage } from '../mime/model';
 import { saltedHash, simhash64 } from '../util/hash';
 import { estimateLanguage, type LanguageCode } from '../util/lang';
+import { FORWARD_SUBJECT, REPLY_SUBJECT } from '../detect/subject';
 
 export type BodyKind = 'both' | 'plain-only' | 'html-only' | 'none';
 
@@ -62,9 +63,6 @@ export interface MessageRecord {
     /** True when plain and HTML disagree about whether the message contains quoted history. */
     quoteMarkingDisagrees: boolean;
 }
-
-const REPLY_SUBJECT = /^\s*(re|aw|sv|vs|vast|antw|res|odp|ответ)\s*(\[\d+\])?\s*:/i;
-const FORWARD_SUBJECT = /^\s*(fwd?|tr|wg|vs|vl|doorst|пересылка)\s*:/i;
 
 function pickParts(message: ParsedMessage): { plain: MimePart[]; html: MimePart[]; attachments: number } {
     const plain: MimePart[] = [];

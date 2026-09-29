@@ -407,27 +407,24 @@ the practical ceiling; see [docs/annotation.md](docs/annotation.md).
 
 | property | measured |
 | --- | ---: |
-| block label agreement | 79.8% |
+| block label agreement | 83.9% |
 | new content characters retained | **100.0%** |
 | new content blocks retained | **100.0%** |
-| hidden content genuinely history | 99.8% |
-| reply history correctly hidden | 58.1% |
+| hidden content genuinely history | 99.7% |
+| reply history correctly hidden | 61.6% |
 | messages losing all new content | 0 |
 | messages losing an inline answer | 0 |
 
 Not one character the reference considers newly written is hidden, across 452 messages and 221,256
 characters of new content.
 
-The agreement figure fell from 83.7 percent when forwards started being recognised by their subject.
-Several clients introduce a forward with the same separator they use for reply history, and those
-forwards used to be hidden; they are now kept as collapsed forwarded content. The reference
-annotator never sees the subject, so it calls those forwarded messages history, and about 340 blocks
-in 33 forwards now disagree with it. Nothing more is hidden: retention is unchanged, and on the
-captured client fixtures (`docs/client-coverage.md`) hidden forwarded text went from 144 tokens to
-none.
+Forwards are recognised by their subject, because several clients introduce a forward with the
+same separator they use for reply history; the forwarded message is kept as collapsed forwarded
+content rather than hidden. The reference annotator never sees the subject and calls about 340
+blocks in 33 such forwards history, which is most of the FORWARDED_CONTENT precision gap below.
 
-Per label F1: REPLY_HISTORY 93.3, FORWARDED_CONTENT 82.4, NEW_CONTENT 75.4, SIGNATURE 52.0,
-INLINE_QUOTE 36.9, DISCLAIMER 33.7.
+Per label F1: REPLY_HISTORY 93.5, NEW_CONTENT 80.3, INLINE_QUOTE 52.3, SIGNATURE 52.0,
+FORWARDED_CONTENT 44.5, DISCLAIMER 33.7.
 
 Recall is the number to read here, not F1. Precision is measured against a reference that labels
 every block, while the extractor deliberately leaves anything it cannot anchor visible, so an honest

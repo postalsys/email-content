@@ -30,6 +30,7 @@ import {
 import { normaliseForMatch } from './match/normalize';
 import { buildShingleIndex, containment, CONTAINMENT_THRESHOLD, isMatchable } from './match/shingle';
 import { ConfigurationError, EXTRACTOR_VERSION, mimePartOf, type ContentAnalysisResult, type Reason, type Segment, type Warning } from './types';
+import { isForwardSubject, REPLY_SUBJECT } from './detect/subject';
 
 /**
  * One structurally independent piece of a message body.
@@ -129,17 +130,6 @@ export interface AnalyzeResult extends ContentAnalysisResult {
         }[];
     };
 }
-
-const REPLY_SUBJECT = /^\s*(re|aw|sv|vs|vast|antw|res|odp|ответ)\s*(\[\d+\])?\s*:/i;
-
-/**
- * Subject prefixes that mark a forward. "Ed" is Outlook's Estonian prefix. Measured on 266 real
- * forwards from 16 clients (test/fixtures/clients): every one used Fwd, Fw or Ed, whatever the
- * interface language, and 250 of them also carried In-Reply-To or References, so headers cannot
- * tell a forward from a reply. A reply to a forward reads "Re: Fwd:" and is caught by
- * REPLY_SUBJECT first.
- */
-const FORWARD_SUBJECT = /^\s*(fwd?|wg|tr|rv|enc|doorst|pd|ed|edasi|пересл[а-я]*|转发|轉寄|転送)\s*(\[\d+\])?\s*:/i;
 
 function contentChars(blocks: readonly Block[]): number {
     return blocks.reduce((sum, block) => sum + block.content.length, 0);
@@ -439,8 +429,9 @@ export async function analyze(content: MessageContent, options: AnalyzeOptions =
     const warnings: Warning[] = [];
 
     const sections = limitSections(normaliseSections(content), maxContentChars, warnings);
-    const isReply = Boolean(content.inReplyTo) || (content.references?.length ?? 0) > 0 || REPLY_SUBJECT.test(content.subject ?? '');
-    const messageIsForward = !REPLY_SUBJECT.test(content.subject ?? '') && FORWARD_SUBJECT.test(content.subject ?? '');
+    const subject = content.subject ?? '';
+    const isReply = Boolean(content.inReplyTo) || (content.references?.length ?? 0) > 0 || REPLY_SUBJECT.test(subject);
+    const messageIsForward = isForwardSubject(subject);
 
     const base = {
         originalAvailable: true as const,

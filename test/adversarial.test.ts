@@ -16,7 +16,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyze } from '../src/analyze';
 import { stripTagsToText } from '../src/canonical/html';
-import { detectQuotedHeaderBlock } from '../src/detect/reply-header';
+import { detectAttributionLine, detectQuotedHeaderBlock } from '../src/detect/reply-header';
 import { extract } from '../src/index';
 import { isPathologicalHtml } from '../src/segment/html-blocks';
 import { readFixture } from './helpers';
@@ -80,6 +80,34 @@ function assertLinear(label: string, sizes: readonly number[], build: (size: num
 }
 
 describe('hostile input stays bounded', () => {
+    it('strips mailto URLs from attribution candidates in linear time', () => {
+        // A leading "\s*" in the stripping regex was retried at every position of a space run:
+        // one 2000 character line of spaces took 2.5 ms, and a megabyte of them over a second.
+        assertLinear(
+            'mailto strip on space runs',
+            [250, 500, 1000, 2000],
+            size => `a${' '.repeat(size - 2)}b`,
+            input => {
+                for (let i = 0; i < 200; i++) {
+                    detectAttributionLine(input);
+                    detectAttributionLine(`${input.slice(0, -1)}mailto:x`);
+                }
+            }
+        );
+    });
+
+    it('keeps attribution patterns cheap on a line with a time and no address', () => {
+        // An overlapping ".*[^\s@]+@" lookahead re-scanned every word from every backtrack point.
+        const line = `12:30 ${'x'.repeat(290)}`;
+        detectAttributionLine(line);
+        const ms = measure(() => {
+            for (let i = 0; i < 2000; i++) {
+                detectAttributionLine(line);
+            }
+        });
+        assert.ok(ms < 400, `2000 hostile lines took ${ms.toFixed(1)}ms`);
+    });
+
     it('detects quoted header blocks in a single pass', () => {
         // 12,000 of these took 4.8 seconds, and doubling the count roughly quadrupled it. The lines
         // are header shaped but never form a strong block, which is the worst case for a detector
