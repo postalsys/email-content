@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.9](https://github.com/postalsys/email-content/compare/v0.1.8...v0.1.9) (2026-09-29)
+
+
+### Features
+
+* add TypeSafe as an optional probabilistic block annotator ([3dc87e8](https://github.com/postalsys/email-content/commit/3dc87e8b143f738741feb2bdbae7379ead0c588b))
+* **cli:** add audit command for per pattern and per rule precision ([98d6b39](https://github.com/postalsys/email-content/commit/98d6b3999e7c45178e7666a6eedf37bfe302162b))
+* **tools:** add client capture harness for labelled reply fixtures ([e129f9a](https://github.com/postalsys/email-content/commit/e129f9a18f6329417ef214033476f86f95d4863d))
+
+
+### Bug Fixes
+
+* keep forwarded messages visible when the separator looks like a reply ([6da88f0](https://github.com/postalsys/email-content/commit/6da88f0385de793fd6cb8fab63dc28b582886e4f))
+* recognise reply and forward structure from 16 captured mail clients ([6da832e](https://github.com/postalsys/email-content/commit/6da832e551b329d091fb7522110cf7a85ca08caf))
+
 ## [0.1.8](https://github.com/postalsys/email-content/compare/v0.1.7...v0.1.8) (2026-09-28)
 
 
