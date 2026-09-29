@@ -109,6 +109,44 @@ Disclaimers dominate, which matches the extractor's own weakest label. Where a f
 footer is genuinely ambiguous, and a labelling convention would settle more of it than a better
 model would.
 
+### A third strong model: gpt-6-astra
+
+Measured on 2026-09-29 under annotate-v4, on the same 452 messages and 8,490 blocks, every block
+aligned. The two directions are counted from the first model's side: "hides" means the first model
+says REPLY_HISTORY where the second says NEW_CONTENT or INLINE_QUOTE.
+
+| pair, annotate-v4          | agreement | by characters | first hides authored | first shows history |
+| -------------------------- | --------: | ------------: | -------------------: | ------------------: |
+| gpt-5.5 vs gpt-5.6-sol     |     97.2% |         97.4% |            47 blocks |            5 blocks |
+| gpt-6-astra vs gpt-5.6-sol |     97.4% |         97.7% |            71 blocks |            0 blocks |
+| gpt-6-astra vs gpt-5.5     |     97.3% |         97.5% |            30 blocks |             1 block |
+
+Three strong models from two generations converge at about 97 percent, which supports reading that
+figure as the effective ceiling for this prompt rather than a property of one model pair. Language
+does not move it: gpt-6-astra agrees with gpt-5.6-sol on 97.1 percent of Estonian blocks and 97.7
+percent of English ones.
+
+Its disagreements are one sided. It almost never leaves visible what the others hide, and it labels
+24 blocks (2,642 characters) as history that both gpt-5.5 and gpt-5.6-sol call authored. Against
+gpt-5.6-sol the largest differences all move toward REPLY_HISTORY:
+
+| gpt-5.6-sol said  | gpt-6-astra said  | blocks |
+| ----------------- | ----------------- | -----: |
+| NEW_CONTENT       | REPLY_HISTORY     |     51 |
+| FORWARDED_CONTENT | REPLY_HISTORY     |     38 |
+| NEW_CONTENT       | DISCLAIMER        |     23 |
+| REPLY_HISTORY     | FORWARDED_CONTENT |     23 |
+| INLINE_QUOTE      | REPLY_HISTORY     |     20 |
+| SIGNATURE         | REPLY_HISTORY     |     14 |
+
+That is the expensive direction, so gpt-6-astra alone would make a reference that is stricter about
+history than the extractor is designed to be, and would score the extractor's conservative choices
+as errors. Its weakest labels against gpt-5.6-sol are INLINE_QUOTE (78.6 percent) and
+FORWARDED_CONTENT (83.3 percent). With three strong models labelling identical blocks, a per block
+majority is now possible, and the 24 blocks it hides against both others are the first candidates for
+human adjudication. Cost: about 2,200 prompt tokens and one second of wall time per message at
+concurrency 8.
+
 ## What the panel actually found
 
 Filtering to blocks where **both** models agree with each other and disagree with the baseline
