@@ -1,0 +1,34 @@
+{
+    "client": "outlook-m365",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqdoboie": [
+            "REPLY_HISTORY"
+        ],
+        "hvqicflsk": [
+            "REPLY_HISTORY"
+        ],
+        "hvqylumov": [
+            "REPLY_HISTORY"
+        ],
+        "hvqxmqbzx": [
+            "REPLY_HISTORY"
+        ],
+        "gvqjipvat": [
+            "REPLY_HISTORY"
+        ],
+        "gvqghpvhh": [
+            "REPLY_HISTORY"
+        ],
+        "nvqagfjsv": [
+            "NEW_CONTENT"
+        ],
+        "nvqlqeyzy": [
+            "NEW_CONTENT"
+        ]
+    }
+}

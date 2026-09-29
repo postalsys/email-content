@@ -1,0 +1,34 @@
+{
+    "client": "zimbra-ovh",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqyhczbg": [
+            "REPLY_HISTORY"
+        ],
+        "hvqfggydl": [
+            "REPLY_HISTORY"
+        ],
+        "hvqngijmu": [
+            "REPLY_HISTORY"
+        ],
+        "hvqlznlwm": [
+            "REPLY_HISTORY"
+        ],
+        "gvqbgqnzj": [
+            "REPLY_HISTORY"
+        ],
+        "gvqxgoadi": [
+            "REPLY_HISTORY"
+        ],
+        "nvqznijrn": [
+            "NEW_CONTENT"
+        ],
+        "nvqkuoztg": [
+            "NEW_CONTENT"
+        ]
+    }
+}

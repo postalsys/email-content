@@ -1,0 +1,28 @@
+{
+    "client": "yandex",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqzeoemq": [
+            "REPLY_HISTORY"
+        ],
+        "hvqpsmgmy": [
+            "REPLY_HISTORY"
+        ],
+        "hvqgmrfuh": [
+            "REPLY_HISTORY"
+        ],
+        "hvqdelttj": [
+            "REPLY_HISTORY"
+        ],
+        "nvqyreiut": [
+            "NEW_CONTENT"
+        ],
+        "nvqcsnlme": [
+            "NEW_CONTENT"
+        ]
+    }
+}

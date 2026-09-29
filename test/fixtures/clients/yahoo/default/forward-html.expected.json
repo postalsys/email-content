@@ -1,0 +1,28 @@
+{
+    "client": "yahoo",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "forward",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqdzpsyr": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqdutrbd": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqqtmmor": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvquzvhuj": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqanomsb": [
+            "NEW_CONTENT"
+        ],
+        "nvqdtrauw": [
+            "NEW_CONTENT"
+        ]
+    }
+}

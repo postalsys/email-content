@@ -1,0 +1,28 @@
+{
+    "client": "gmail",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqfhsmhe": [
+            "REPLY_HISTORY"
+        ],
+        "hvqwxswrw": [
+            "REPLY_HISTORY"
+        ],
+        "hvqlowypv": [
+            "REPLY_HISTORY"
+        ],
+        "hvqnvwedy": [
+            "REPLY_HISTORY"
+        ],
+        "nvqazcspt": [
+            "NEW_CONTENT"
+        ],
+        "nvqhptlco": [
+            "NEW_CONTENT"
+        ]
+    }
+}

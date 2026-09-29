@@ -1,0 +1,34 @@
+{
+    "client": "proton",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqkeaufw": [
+            "REPLY_HISTORY"
+        ],
+        "hvqfwtvpp": [
+            "REPLY_HISTORY"
+        ],
+        "hvquletdh": [
+            "REPLY_HISTORY"
+        ],
+        "hvqtlyvwc": [
+            "REPLY_HISTORY"
+        ],
+        "gvqmlpyek": [
+            "REPLY_HISTORY"
+        ],
+        "gvqioqwiw": [
+            "REPLY_HISTORY"
+        ],
+        "nvqdevffs": [
+            "NEW_CONTENT"
+        ],
+        "nvqffirxi": [
+            "NEW_CONTENT"
+        ]
+    }
+}

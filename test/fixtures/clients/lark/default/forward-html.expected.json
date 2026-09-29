@@ -1,0 +1,28 @@
+{
+    "client": "lark",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "forward",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqppkffy": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqzyucod": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqiwraky": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqdschzd": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqjtiaku": [
+            "NEW_CONTENT"
+        ],
+        "nvqtvakja": [
+            "NEW_CONTENT"
+        ]
+    }
+}

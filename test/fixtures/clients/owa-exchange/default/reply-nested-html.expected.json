@@ -1,0 +1,34 @@
+{
+    "client": "owa-exchange",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqlncjwd": [
+            "REPLY_HISTORY"
+        ],
+        "hvqrhktpv": [
+            "REPLY_HISTORY"
+        ],
+        "hvquokxjz": [
+            "REPLY_HISTORY"
+        ],
+        "hvqdissdq": [
+            "REPLY_HISTORY"
+        ],
+        "gvqrpdnoc": [
+            "REPLY_HISTORY"
+        ],
+        "gvqyitrew": [
+            "REPLY_HISTORY"
+        ],
+        "nvqaoyolu": [
+            "NEW_CONTENT"
+        ],
+        "nvqurjiyt": [
+            "NEW_CONTENT"
+        ]
+    }
+}

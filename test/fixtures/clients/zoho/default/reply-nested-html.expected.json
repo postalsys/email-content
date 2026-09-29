@@ -1,0 +1,34 @@
+{
+    "client": "zoho",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqiyjnmu": [
+            "REPLY_HISTORY"
+        ],
+        "hvqvotbir": [
+            "REPLY_HISTORY"
+        ],
+        "hvqxgdhfg": [
+            "REPLY_HISTORY"
+        ],
+        "hvqorhodw": [
+            "REPLY_HISTORY"
+        ],
+        "gvqozrhof": [
+            "REPLY_HISTORY"
+        ],
+        "gvqqswjfh": [
+            "REPLY_HISTORY"
+        ],
+        "nvqyxoizq": [
+            "NEW_CONTENT"
+        ],
+        "nvqujcejj": [
+            "NEW_CONTENT"
+        ]
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "client": "yandex",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "forward",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqyxthxu": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqwarygg": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqnwaeaw": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqpqppmj": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqkocyok": [
+            "NEW_CONTENT"
+        ],
+        "nvqlknosz": [
+            "NEW_CONTENT"
+        ]
+    }
+}

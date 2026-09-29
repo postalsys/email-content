@@ -1,0 +1,34 @@
+{
+    "client": "cypht",
+    "locale": "en",
+    "compose": "text",
+    "scenario": "reply-nested",
+    "clientVersion": "latest",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqqqhpmn": [
+            "REPLY_HISTORY"
+        ],
+        "hvqbkigfk": [
+            "REPLY_HISTORY"
+        ],
+        "hvquxnrdv": [
+            "REPLY_HISTORY"
+        ],
+        "hvqvboqyh": [
+            "REPLY_HISTORY"
+        ],
+        "gvqtbdrsv": [
+            "REPLY_HISTORY"
+        ],
+        "gvqmcrmso": [
+            "REPLY_HISTORY"
+        ],
+        "nvqniqerq": [
+            "NEW_CONTENT"
+        ],
+        "nvqafkfqs": [
+            "NEW_CONTENT"
+        ]
+    }
+}

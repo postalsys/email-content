@@ -1,0 +1,28 @@
+{
+    "client": "zimbra-ovh",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "forward",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqvekvnr": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqavdost": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqicxhrf": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqfulcvp": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqlngomy": [
+            "NEW_CONTENT"
+        ],
+        "nvqecetam": [
+            "NEW_CONTENT"
+        ]
+    }
+}

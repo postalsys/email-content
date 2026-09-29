@@ -1,0 +1,34 @@
+{
+    "client": "snappymail",
+    "locale": "en",
+    "compose": "text",
+    "scenario": "reply-nested",
+    "clientVersion": "2.38.2",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqabslnc": [
+            "REPLY_HISTORY"
+        ],
+        "hvqdhcujc": [
+            "REPLY_HISTORY"
+        ],
+        "hvqnvecpp": [
+            "REPLY_HISTORY"
+        ],
+        "hvqpayoyp": [
+            "REPLY_HISTORY"
+        ],
+        "gvqniksyj": [
+            "REPLY_HISTORY"
+        ],
+        "gvqgepnwv": [
+            "REPLY_HISTORY"
+        ],
+        "nvqsoictl": [
+            "NEW_CONTENT"
+        ],
+        "nvqaztcnx": [
+            "NEW_CONTENT"
+        ]
+    }
+}

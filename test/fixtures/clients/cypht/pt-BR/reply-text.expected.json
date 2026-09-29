@@ -1,0 +1,28 @@
+{
+    "client": "cypht",
+    "locale": "pt-BR",
+    "compose": "text",
+    "scenario": "reply",
+    "clientVersion": "latest",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqehnyip": [
+            "REPLY_HISTORY"
+        ],
+        "hvqqrdybq": [
+            "REPLY_HISTORY"
+        ],
+        "hvqhrryax": [
+            "REPLY_HISTORY"
+        ],
+        "hvqqmvhfz": [
+            "REPLY_HISTORY"
+        ],
+        "nvqhnaeez": [
+            "NEW_CONTENT"
+        ],
+        "nvqcmtklr": [
+            "NEW_CONTENT"
+        ]
+    }
+}

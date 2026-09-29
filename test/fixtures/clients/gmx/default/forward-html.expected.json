@@ -1,0 +1,28 @@
+{
+    "client": "gmx",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "forward",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqcbkisu": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqwolvwk": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqyfwxyf": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqelfvfu": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqfyiivx": [
+            "NEW_CONTENT"
+        ],
+        "nvqmqnmlw": [
+            "NEW_CONTENT"
+        ]
+    }
+}

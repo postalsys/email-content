@@ -1,0 +1,34 @@
+{
+    "client": "icloud",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqbcgevf": [
+            "REPLY_HISTORY"
+        ],
+        "hvqkntvvr": [
+            "REPLY_HISTORY"
+        ],
+        "hvqpaqulr": [
+            "REPLY_HISTORY"
+        ],
+        "hvqfpibhm": [
+            "REPLY_HISTORY"
+        ],
+        "gvqsyhmuv": [
+            "REPLY_HISTORY"
+        ],
+        "gvqjltvdz": [
+            "REPLY_HISTORY"
+        ],
+        "nvqsdflch": [
+            "NEW_CONTENT"
+        ],
+        "nvqicekra": [
+            "NEW_CONTENT"
+        ]
+    }
+}

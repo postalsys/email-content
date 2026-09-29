@@ -1,0 +1,34 @@
+{
+    "client": "yandex",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqorzgiz": [
+            "REPLY_HISTORY"
+        ],
+        "hvqsdayko": [
+            "REPLY_HISTORY"
+        ],
+        "hvqsotzin": [
+            "REPLY_HISTORY"
+        ],
+        "hvqsukhrt": [
+            "REPLY_HISTORY"
+        ],
+        "gvqvgotnl": [
+            "REPLY_HISTORY"
+        ],
+        "gvqbzsjlz": [
+            "REPLY_HISTORY"
+        ],
+        "nvqyrdntp": [
+            "NEW_CONTENT"
+        ],
+        "nvqqbwjoc": [
+            "NEW_CONTENT"
+        ]
+    }
+}

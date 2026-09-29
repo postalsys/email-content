@@ -1,0 +1,28 @@
+{
+    "client": "roundcube",
+    "locale": "eu_ES",
+    "compose": "html",
+    "scenario": "forward",
+    "clientVersion": "3",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqtmpwuu": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqozibrj": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqqyjiyx": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqdnibhv": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqtdvzwb": [
+            "NEW_CONTENT"
+        ],
+        "nvqgeqrng": [
+            "NEW_CONTENT"
+        ]
+    }
+}

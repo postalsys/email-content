@@ -1,0 +1,28 @@
+{
+    "client": "zimbra-ovh",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqqngupy": [
+            "REPLY_HISTORY"
+        ],
+        "hvqjaplyd": [
+            "REPLY_HISTORY"
+        ],
+        "hvqsqrrcs": [
+            "REPLY_HISTORY"
+        ],
+        "hvqugwudx": [
+            "REPLY_HISTORY"
+        ],
+        "nvqztxuqa": [
+            "NEW_CONTENT"
+        ],
+        "nvqtrwfps": [
+            "NEW_CONTENT"
+        ]
+    }
+}

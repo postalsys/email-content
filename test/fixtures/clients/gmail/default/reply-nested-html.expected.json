@@ -1,0 +1,34 @@
+{
+    "client": "gmail",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqmveqro": [
+            "REPLY_HISTORY"
+        ],
+        "hvqisxany": [
+            "REPLY_HISTORY"
+        ],
+        "hvqbltrnd": [
+            "REPLY_HISTORY"
+        ],
+        "hvqlhmxuk": [
+            "REPLY_HISTORY"
+        ],
+        "gvqbjueoh": [
+            "REPLY_HISTORY"
+        ],
+        "gvqdswwwt": [
+            "REPLY_HISTORY"
+        ],
+        "nvqvkbyds": [
+            "NEW_CONTENT"
+        ],
+        "nvqucidbr": [
+            "NEW_CONTENT"
+        ]
+    }
+}

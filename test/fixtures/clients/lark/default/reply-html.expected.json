@@ -1,0 +1,28 @@
+{
+    "client": "lark",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqtwglhq": [
+            "REPLY_HISTORY"
+        ],
+        "hvqnerfmk": [
+            "REPLY_HISTORY"
+        ],
+        "hvqpquagu": [
+            "REPLY_HISTORY"
+        ],
+        "hvqlzvnnz": [
+            "REPLY_HISTORY"
+        ],
+        "nvqhxsndp": [
+            "NEW_CONTENT"
+        ],
+        "nvqabiaef": [
+            "NEW_CONTENT"
+        ]
+    }
+}

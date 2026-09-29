@@ -1,0 +1,28 @@
+{
+    "client": "gmx",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvquxaanr": [
+            "REPLY_HISTORY"
+        ],
+        "hvqvwlphh": [
+            "REPLY_HISTORY"
+        ],
+        "hvqhgqbuw": [
+            "REPLY_HISTORY"
+        ],
+        "hvqeeuqrb": [
+            "REPLY_HISTORY"
+        ],
+        "nvqbgfuok": [
+            "NEW_CONTENT"
+        ],
+        "nvqqpilkn": [
+            "NEW_CONTENT"
+        ]
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "client": "outlook-m365",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqvtqpss": [
+            "REPLY_HISTORY"
+        ],
+        "hvqfytdbe": [
+            "REPLY_HISTORY"
+        ],
+        "hvqthvvrw": [
+            "REPLY_HISTORY"
+        ],
+        "hvqhgizoj": [
+            "REPLY_HISTORY"
+        ],
+        "nvqujqofe": [
+            "NEW_CONTENT"
+        ],
+        "nvqbafgex": [
+            "NEW_CONTENT"
+        ]
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "client": "owa-exchange",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqvgwlao": [
+            "REPLY_HISTORY"
+        ],
+        "hvqdjeblq": [
+            "REPLY_HISTORY"
+        ],
+        "hvqeiakim": [
+            "REPLY_HISTORY"
+        ],
+        "hvqpzsptl": [
+            "REPLY_HISTORY"
+        ],
+        "nvqnayjak": [
+            "NEW_CONTENT"
+        ],
+        "nvqwbfkrb": [
+            "NEW_CONTENT"
+        ]
+    }
+}

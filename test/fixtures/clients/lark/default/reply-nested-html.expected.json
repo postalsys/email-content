@@ -1,0 +1,34 @@
+{
+    "client": "lark",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqwceqio": [
+            "REPLY_HISTORY"
+        ],
+        "hvqqfaglr": [
+            "REPLY_HISTORY"
+        ],
+        "hvqpigucx": [
+            "REPLY_HISTORY"
+        ],
+        "hvqhletji": [
+            "REPLY_HISTORY"
+        ],
+        "gvquvxrrq": [
+            "REPLY_HISTORY"
+        ],
+        "gvqajdsht": [
+            "REPLY_HISTORY"
+        ],
+        "nvqyqpfny": [
+            "NEW_CONTENT"
+        ],
+        "nvqkqsokh": [
+            "NEW_CONTENT"
+        ]
+    }
+}

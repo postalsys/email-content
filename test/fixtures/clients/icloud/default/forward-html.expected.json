@@ -1,0 +1,28 @@
+{
+    "client": "icloud",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "forward",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqxtefjz": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqwymtdu": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqebgrvg": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqphnexi": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqgpiwll": [
+            "NEW_CONTENT"
+        ],
+        "nvqgvnhyk": [
+            "NEW_CONTENT"
+        ]
+    }
+}

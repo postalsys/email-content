@@ -1,0 +1,34 @@
+{
+    "client": "roundcube",
+    "locale": "en_US",
+    "compose": "html",
+    "scenario": "reply-nested",
+    "clientVersion": "3",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqtshwni": [
+            "REPLY_HISTORY"
+        ],
+        "hvqlibvjm": [
+            "REPLY_HISTORY"
+        ],
+        "hvqckcxrj": [
+            "REPLY_HISTORY"
+        ],
+        "hvqyfasui": [
+            "REPLY_HISTORY"
+        ],
+        "gvqicmcvl": [
+            "REPLY_HISTORY"
+        ],
+        "gvqgxmpph": [
+            "REPLY_HISTORY"
+        ],
+        "nvqgzhnmm": [
+            "NEW_CONTENT"
+        ],
+        "nvqfabakd": [
+            "NEW_CONTENT"
+        ]
+    }
+}

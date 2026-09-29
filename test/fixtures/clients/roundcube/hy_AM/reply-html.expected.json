@@ -1,0 +1,28 @@
+{
+    "client": "roundcube",
+    "locale": "hy_AM",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "3",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqimddyf": [
+            "REPLY_HISTORY"
+        ],
+        "hvqcnwqtd": [
+            "REPLY_HISTORY"
+        ],
+        "hvqxwjots": [
+            "REPLY_HISTORY"
+        ],
+        "hvqyysrqm": [
+            "REPLY_HISTORY"
+        ],
+        "nvqqeuzsx": [
+            "NEW_CONTENT"
+        ],
+        "nvqyvfrel": [
+            "NEW_CONTENT"
+        ]
+    }
+}

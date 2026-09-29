@@ -1,0 +1,28 @@
+{
+    "client": "snappymail",
+    "locale": "lv",
+    "compose": "text",
+    "scenario": "forward",
+    "clientVersion": "2.38.2",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqcqvkji": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqxwhowx": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqljcixh": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqfmdjzk": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqjueike": [
+            "NEW_CONTENT"
+        ],
+        "nvqhgcunz": [
+            "NEW_CONTENT"
+        ]
+    }
+}

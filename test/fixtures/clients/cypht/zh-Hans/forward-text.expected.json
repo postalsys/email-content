@@ -1,0 +1,28 @@
+{
+    "client": "cypht",
+    "locale": "zh-Hans",
+    "compose": "text",
+    "scenario": "forward",
+    "clientVersion": "latest",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqauvoib": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqbqroyb": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqmbnhbl": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqtlsdos": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqsmvpww": [
+            "NEW_CONTENT"
+        ],
+        "nvqqqmlei": [
+            "NEW_CONTENT"
+        ]
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "client": "outlook-com",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqqpolgd": [
+            "REPLY_HISTORY"
+        ],
+        "hvqwpjphw": [
+            "REPLY_HISTORY"
+        ],
+        "hvqdlytvu": [
+            "REPLY_HISTORY"
+        ],
+        "hvqmeywiu": [
+            "REPLY_HISTORY"
+        ],
+        "nvqgjdbkx": [
+            "NEW_CONTENT"
+        ],
+        "nvqbftzmx": [
+            "NEW_CONTENT"
+        ]
+    }
+}

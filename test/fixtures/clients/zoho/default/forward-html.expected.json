@@ -1,0 +1,28 @@
+{
+    "client": "zoho",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "forward",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "fvqrswtne": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqrtboag": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqmhoizc": [
+            "FORWARDED_CONTENT"
+        ],
+        "fvqqpcdnu": [
+            "FORWARDED_CONTENT"
+        ],
+        "nvqxgdrca": [
+            "NEW_CONTENT"
+        ],
+        "nvqhuqjug": [
+            "NEW_CONTENT"
+        ]
+    }
+}

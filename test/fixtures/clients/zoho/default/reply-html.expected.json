@@ -1,0 +1,28 @@
+{
+    "client": "zoho",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqnodqpd": [
+            "REPLY_HISTORY"
+        ],
+        "hvqogsamy": [
+            "REPLY_HISTORY"
+        ],
+        "hvqwvmtos": [
+            "REPLY_HISTORY"
+        ],
+        "hvqcfwljr": [
+            "REPLY_HISTORY"
+        ],
+        "nvqqosprl": [
+            "NEW_CONTENT"
+        ],
+        "nvqpgbxkx": [
+            "NEW_CONTENT"
+        ]
+    }
+}

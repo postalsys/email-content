@@ -1,0 +1,28 @@
+{
+    "client": "fastmail",
+    "locale": "default",
+    "compose": "html",
+    "scenario": "reply",
+    "clientVersion": "web",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqlkhsou": [
+            "REPLY_HISTORY"
+        ],
+        "hvqfsvhkb": [
+            "REPLY_HISTORY"
+        ],
+        "hvqckttjw": [
+            "REPLY_HISTORY"
+        ],
+        "hvquxljjy": [
+            "REPLY_HISTORY"
+        ],
+        "nvqtcmebo": [
+            "NEW_CONTENT"
+        ],
+        "nvqmpfryj": [
+            "NEW_CONTENT"
+        ]
+    }
+}
