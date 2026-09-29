@@ -1,0 +1,28 @@
+{
+    "client": "snappymail",
+    "locale": "de",
+    "compose": "text",
+    "scenario": "reply-below",
+    "clientVersion": "2.38.2",
+    "capturedAt": "2026-09-29",
+    "expected": {
+        "hvqniubpf": [
+            "REPLY_HISTORY"
+        ],
+        "hvquaobcr": [
+            "REPLY_HISTORY"
+        ],
+        "hvqpbkkjl": [
+            "REPLY_HISTORY"
+        ],
+        "hvqnolkpd": [
+            "REPLY_HISTORY"
+        ],
+        "nvqegoabf": [
+            "NEW_CONTENT"
+        ],
+        "nvqdycoze": [
+            "NEW_CONTENT"
+        ]
+    }
+}
