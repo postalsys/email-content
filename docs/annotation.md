@@ -224,6 +224,40 @@ no rule hid a single authored block. What remains is tidiness, and three rows ex
 Rerun it after any pattern file edit: a new pattern that lands on authored text shows up as its own
 row before it moves the aggregate numbers.
 
+### At corpus scale
+
+The whole human reply corpus was then annotated with gpt-6-sol under annotate-v4: 13,954 messages,
+257,239 blocks, 0 failures, 30.0M prompt and 5.3M completion tokens in 3 hours 11 minutes at
+concurrency 8. It is a weaker reference than the 452 message set (87.2% agreement with the rule
+baseline), so every loss it reported was read before anything changed. What it found that the
+small set could not:
+
+| shape                                                                                                       | what hid authored text                                                                            | fix                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Outlook-era HTML putting the sign-off, `-----Original Message-----` and the old headers in one `<font>` run | the whole run became the header block and was hidden, sometimes the entire reply                  | an HTML block with authored lines above its embedded header is shown as `UNKNOWN` when it is where history begins (`authored_text_before_anchor`)                               |
+| a pasted raw header or code: a sample IMAP header, a DKIM report, a JavaScript `{ from:, to:, subject: }`   | the detector took it for a reply header block and hid everything after it                         | a chain holding a transport field (`Message-ID`, `Return-Path`, `Content-Type`, `X-*`, ...) is not an anchor; a lowercase field name or a value ending in a comma earns no role |
+| "my answers are inline", "Answers are in your letter"                                                       | answers typed into the quote carry no marker and were hidden with it                              | `inlineAnnouncements` in `reply-headers.json`; the directly quoted message is kept visible as `INLINE_QUOTE`                                                                    |
+| a forward of a thread whose last message had a legal disclaimer                                             | the header sweep started inside the forward relabelled the forwarded disclaimer as hidden history | the reply and separator sweeps never reach into a forward region                                                                                                                |
+| `<!DOCTYPE ...>` left in a text node by the parser                                                          | shown as the message's first line of new content in 2,587 messages                                | stripped in the projection                                                                                                                                                      |
+
+Two evaluation artefacts were fixed at the same time. A message whose annotated part is all history
+was counted as an empty extraction even when its new content in another part was on screen (98 of
+100 "empty extractions"), and blocks of an annotated part the extractor did not emit were scored
+against a different part's segments. Both are now excluded and counted on stderr.
+
+| gpt-6-sol reference, with history      | before |             after |
+| -------------------------------------- | -----: | ----------------: |
+| new content characters retained        |  99.2% |             99.8% |
+| new content blocks retained            |  99.6% | 100.0% (8 blocks) |
+| hidden content genuinely history       |  99.4% |             99.8% |
+| forwarded content discarded (messages) |     75 |                11 |
+| empty extraction (messages)            |    100 |                 0 |
+| all new content removed (messages)     |      3 |                 1 |
+
+What is left is content inside a quote container that is not history (console output formatted as
+a blockquote, a web page quoted by the sender) and forwards announced only in prose ("Robin's
+letter below") with no marker and no `Fwd:` subject.
+
 ## Cost
 
 | run                       | messages | blocks | prompt tokens | completion tokens |
@@ -232,8 +266,8 @@ row before it moves the aggregate numbers.
 | gpt-5.5, 60 messages      |       60 |  1,041 |        99,446 |            30,826 |
 
 Roughly 1,650 prompt tokens per message, dominated by the system prompt, which is a good candidate
-for prompt caching if this is ever run at corpus scale. Annotating all 13,991 human replies would
-be on the order of 23 million prompt tokens.
+for prompt caching. The corpus scale gpt-6-sol run measured 2,149 prompt tokens and 822 ms of wall
+time per message, 30.0M prompt tokens for 13,954 messages.
 
 ## Limitations
 

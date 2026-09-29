@@ -71,8 +71,15 @@ export interface CoveringPrediction {
  * silently kept only the last of them. Older annotations predate the part being recorded; those
  * fall back to the first part the output used, which is exactly the previous behaviour for the
  * single section messages they came from.
+ *
+ * A recorded part the output never used gets no prediction. Falling back for it scored the HTML
+ * alternative's block indices against the plain text alternative's segments; check `emitted` and
+ * leave such blocks out instead.
  */
-export function segmentLookup(...segmentLists: readonly (readonly Segment[])[]): (part: string | null, index: number) => CoveringPrediction | null {
+export function segmentLookup(...segmentLists: readonly (readonly Segment[])[]): {
+    lookup: (part: string | null, index: number) => CoveringPrediction | null;
+    emitted: (part: string | null) => boolean;
+} {
     const predictions = new Map<string, Map<number, CoveringPrediction>>();
     for (const segment of segmentLists.flat()) {
         const blockIndex = blockIndexOf(segment.source);
@@ -89,9 +96,14 @@ export function segmentLookup(...segmentLists: readonly (readonly Segment[])[]):
     }
     const ordered = new Map([...predictions].map(([part, bucket]) => [part, [...bucket.keys()].sort((a, b) => a - b)]));
 
+    const emitted = (part: string | null): boolean => part === null || predictions.has(part);
+
     // Segments start at a block index and run to the next one, so fill forward within the part.
-    return (part, index) => {
-        const key = part !== null && predictions.has(part) ? part : (predictions.keys().next().value ?? '');
+    const lookup = (part: string | null, index: number): CoveringPrediction | null => {
+        if (!emitted(part)) {
+            return null;
+        }
+        const key = part ?? predictions.keys().next().value ?? '';
         const starts = ordered.get(key) ?? [];
         let best: number | null = null;
         for (const start of starts) {
@@ -103,4 +115,5 @@ export function segmentLookup(...segmentLists: readonly (readonly Segment[])[]):
         }
         return best === null ? null : (predictions.get(key)?.get(best) ?? null);
     };
+    return { lookup, emitted };
 }

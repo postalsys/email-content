@@ -132,6 +132,8 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
     const rows: LabelledBlock[] = [];
     let failures = 0;
     let withHistory = 0;
+    let notEmitted = 0;
+    let nowBlank = 0;
 
     for (const relPath of paths) {
         const references = byPath.get(relPath) as ReferenceRow[];
@@ -158,13 +160,20 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
 
         let result;
         try {
-            result = await extract(raw, historyDocuments ? { historyDocuments } : {});
+            result = await extract(raw, { explain: true, ...(historyDocuments ? { historyDocuments } : {}) });
         } catch {
             failures++;
             continue;
         }
 
-        const lookup = segmentLookup(result.segments, result.hiddenSegments);
+        const { lookup, emitted } = segmentLookup(result.segments, result.hiddenSegments);
+        const messageHasVisibleText = result.segments.some(segment => segment.text.trim() !== '');
+        // Blocks that no longer carry any text, such as a doctype the projection used to leak as
+        // body text. There is nothing left to show or hide, so there is nothing to score.
+        const primaryPart = result.diagnostics?.primaryPart ?? '';
+        const blank = new Set(
+            (result.diagnostics?.blocks ?? []).filter(block => block.features.isAllBlank === true).map(block => `${block.mimePart}|${block.sourceIndex}`)
+        );
 
         const first = references[0];
         const group =
@@ -179,6 +188,16 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
                     : (first?.client ?? 'unknown');
 
         for (const item of references) {
+            // The annotated part is not what the extractor showed, typically the other alternative
+            // of a multipart/alternative. There is nothing to compare its blocks against.
+            if (!emitted(item.mime_part)) {
+                notEmitted++;
+                continue;
+            }
+            if (blank.has(`${item.mime_part ?? primaryPart}|${item.block_index}`)) {
+                nowBlank++;
+                continue;
+            }
             const prediction = lookup(item.mime_part, item.block_index);
             rows.push({
                 path: relPath,
@@ -190,13 +209,20 @@ export async function evaluateCommand(args: ParsedArgs): Promise<number> {
                 // excluding it from the score.
                 predicted: prediction?.label ?? 'UNKNOWN',
                 hidden: prediction?.hidden ?? false,
-                group
+                group,
+                messageHasVisibleText
             });
         }
     }
 
     store.close();
 
+    if (nowBlank) {
+        process.stderr.write(`${nowBlank} annotated block(s) no longer carry any text and were skipped\n`);
+    }
+    if (notEmitted) {
+        process.stderr.write(`${notEmitted} annotated block(s) belong to a part the extractor did not emit and were skipped\n`);
+    }
     if (failures) {
         process.stderr.write(`${failures} message(s) could not be evaluated\n`);
     }

@@ -125,6 +125,7 @@ export function computeFeatures(content: string, context: FeatureContext): Block
         isAllBlank: nonBlank.length === 0,
         tags: context.tags ?? [],
         classes: context.classes ?? [],
-        hasTopBorder: context.hasTopBorder ?? false
+        hasTopBorder: context.hasTopBorder ?? false,
+        authoredLinesBeforeAnchor: 0
     };
 }

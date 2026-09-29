@@ -499,5 +499,47 @@
             "flags": "i",
             "pattern": "^\\s*-{2,}\\s*(Reply Message|Antwort|Svar)\\s*-{2,}\\s*$"
         }
+    ],
+    "inlineAnnouncements": [
+        {
+            "id": "answers_inline_en",
+            "lang": "en",
+            "strength": 0.8,
+            "flags": "i",
+            "comment": "'my answers are inline', 'replies are inline', 'comments inline'. The sender says the reply is written into the quoted text.",
+            "pattern": "\\b(answers|comments|replies|responses)\\s+(are\\s+)?inline\\b"
+        },
+        {
+            "id": "answers_below_en",
+            "lang": "en",
+            "strength": 0.8,
+            "flags": "i",
+            "comment": "'My comments below', 'Some replies below', 'see my comments below'. Requires a possessive or quantifier, because 'the answers below' in prose points at the sender's own text.",
+            "pattern": "\\b(my|some|see my|please see my)\\s+(answers|comments|replies|responses|notes)\\s+(are\\s+)?below\\b"
+        },
+        {
+            "id": "answers_in_your_letter_en",
+            "lang": "en",
+            "strength": 0.8,
+            "flags": "i",
+            "comment": "'Answers are in your letter', 'my comments are in your email'.",
+            "pattern": "\\b(answers|comments|replies|responses)\\s+are\\s+in\\s+your\\s+(letter|mail|e-?mail|message)\\b"
+        },
+        {
+            "id": "answers_in_letter_et",
+            "lang": "et",
+            "strength": 0.8,
+            "flags": "i",
+            "comment": "'Vastused on kirja sees' (the answers are inside the letter), 'panin oma mõtted sinu maili sisse' (I put my thoughts into your mail), with or without 'punasega' (in red).",
+            "pattern": "\\b(vastused|mõtted|kommentaarid)\\b[^.\\n]{0,30}\\b(kirja|maili)\\s+(sees|sisse)\\b"
+        },
+        {
+            "id": "my_answers_et",
+            "lang": "et",
+            "strength": 0.8,
+            "flags": "i",
+            "comment": "'minu vastused.' as a short lead-in to answers typed into the quoted questions. Requires sentence end, because 'minu vastused Sinu küsimustele: 1)' introduces answers the sender wrote out in full.",
+            "pattern": "\\bminu\\s+vastused\\s*[.!]"
+        }
     ]
 }

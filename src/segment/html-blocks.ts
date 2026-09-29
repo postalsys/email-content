@@ -17,7 +17,7 @@
 
 import { type HTMLElement, type Node, NodeType, parse } from 'node-html-parser';
 import { loadPatterns, type SelectorPattern } from '../detect/patterns';
-import { detectAttributionLine, detectQuotedHeaderBlock, detectRuleSeparator } from '../detect/reply-header';
+import { detectAttributionLine, detectInlineAnnouncement, detectQuotedHeaderBlock, detectRuleSeparator } from '../detect/reply-header';
 import { detectForwardMarker } from '../detect/forward-header';
 import { detectSignatureDelimiter, detectSignaturePhrases, detectSignatureShape } from '../detect/signature';
 import { detectDisclaimer } from '../detect/disclaimer';
@@ -189,6 +189,9 @@ function isElement(node: Node): node is HTMLElement {
  * tags in it and is therefore untouched by this.
  */
 const CONDITIONAL_COMMENT = /<!\[[^\]]*\]>/g;
+// A doctype the parser left in a text node, which Outlook 2003 era mail repeats inside the body.
+// Someone quoting one in prose writes it escaped, as a text node without the literal bracket.
+const DOCTYPE = /<!doctype[^>]{0,200}>/gi;
 const LEAKED_MARKUP = /<[a-z][a-z0-9]*(?:\s[^>]*)?>/i;
 
 /** Leading lines of a block, for line anchored detectors. */
@@ -205,7 +208,7 @@ function projectText(nodes: readonly Node[]): string {
     const visit = (node: Node) => {
         if (node.nodeType === NodeType.TEXT_NODE) {
             const raw = node.rawText ?? '';
-            const cleaned = raw.replace(CONDITIONAL_COMMENT, '');
+            const cleaned = raw.replace(CONDITIONAL_COMMENT, '').replace(DOCTYPE, '');
             out += LEAKED_MARKUP.test(cleaned) ? stripTagsToText(cleaned) : decodeEntities(cleaned);
             return;
         }
@@ -625,10 +628,22 @@ export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentat
                 evidence.push(attribution);
             }
         }
+        let authoredLinesBeforeAnchor = 0;
         if (kind === 'quoted_header_block') {
-            const match = detectQuotedHeaderBlock(text.split('\n').map(line => line.trim()));
+            const lines = text.split('\n').map(line => line.trim());
+            const match = detectQuotedHeaderBlock(lines);
             if (match) {
                 evidence.push(match.evidence);
+                // Outlook-era HTML puts the sign-off, the separator line and the old headers in one
+                // <font> run divided only by <br>, so the block also holds what the sender typed
+                // above them. Counted here so the rules can keep such a block visible; measured on
+                // the corpus, whole replies ("Same here, sorry, Anu") were hidden this way.
+                for (let i = 0; i < match.startLine; i++) {
+                    const line = lines[i] as string;
+                    if (line && !detectAttributionLine(line) && !detectRuleSeparator(line)) {
+                        authoredLinesBeforeAnchor++;
+                    }
+                }
             }
         }
         if (kind === 'forward_header') {
@@ -668,6 +683,7 @@ export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentat
             }),
             evidence
         });
+        (blocks[blocks.length - 1] as Block).features.authoredLinesBeforeAnchor = authoredLinesBeforeAnchor;
         previousEnd = nodeEnd;
     }
 
@@ -843,6 +859,10 @@ export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentat
         }
         for (const evidence of detectSignaturePhrases(lines)) {
             block.evidence.push(evidence);
+        }
+        const announcement = detectInlineAnnouncement(lines);
+        if (announcement) {
+            block.evidence.push(announcement);
         }
         const shape = detectSignatureShape(block.features);
         if (shape) {

@@ -127,7 +127,9 @@ export type Reason =
     | 'no_new_content_after_region'
     | 'new_content_after_region'
     | 'interleaved_with_new_content'
+    | 'inline_answers_announced'
     | 'contains_old_message_headers'
+    | 'authored_text_before_anchor'
     | 'quote_depth_positive'
     | 'no_anchor_for_quote'
     // client specific containers

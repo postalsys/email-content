@@ -19,7 +19,7 @@
 import { canonicaliseText, type CanonicalText, type TextLine } from '../canonical/text';
 import { detectDisclaimer } from '../detect/disclaimer';
 import { detectForwardMarker } from '../detect/forward-header';
-import { detectAttributionLine, detectQuotedHeaderBlock, detectRuleSeparator } from '../detect/reply-header';
+import { detectAttributionLine, detectInlineAnnouncement, detectQuotedHeaderBlock, detectRuleSeparator } from '../detect/reply-header';
 import { detectSignatureDelimiter, detectSignaturePhrases, detectSignatureShape } from '../detect/signature';
 import { computeFeatures } from './features';
 import { type Block, type BlockKind, type Evidence } from './types';
@@ -240,6 +240,10 @@ export function segmentTextBlocks(raw: string, mimePart: string): { canonical: C
         const blockLines = block.content.split('\n');
         for (const evidence of detectSignaturePhrases(blockLines)) {
             block.evidence.push(evidence);
+        }
+        const announcement = detectInlineAnnouncement(blockLines);
+        if (announcement) {
+            block.evidence.push(announcement);
         }
         const shape = detectSignatureShape(block.features);
         if (shape) {

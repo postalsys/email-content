@@ -78,6 +78,13 @@ export interface BlockFeatures {
     classes: string[];
     /** True when the block has a top border, which several clients use as a reply separator. */
     hasTopBorder: boolean;
+    /**
+     * Non-blank lines above an embedded header block inside this same block that are not
+     * themselves a separator or attribution line. HTML only: the plain text segmenter starts a new
+     * block at the header, but an HTML block is a DOM run and cannot be split, so a sign-off and
+     * the "-----Original Message-----" that follows it arrive as one block.
+     */
+    authoredLinesBeforeAnchor: number;
 }
 
 export interface Block {

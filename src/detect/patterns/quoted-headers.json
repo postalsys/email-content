@@ -36,6 +36,13 @@
             "role": "originator",
             "flags": "i",
             "pattern": "^\\s*(Reply-To|Antwort an|Répondre à)\\s*:\\s*\\S"
+        },
+        {
+            "id": "transport",
+            "role": "transport",
+            "flags": "i",
+            "comment": "Fields a mail client never copies into a reply header but a raw header dump always carries. A chain containing one is a pasted header or a report, not an anchor: an IMAP tutorial with a sample header lost 24 authored blocks to it on the corpus.",
+            "pattern": "^\\s*(Message-ID|Return-Path|Received|Delivered-To|Content-Type|Content-Transfer-Encoding|MIME-Version|DKIM-Signature|Authentication-Results|In-Reply-To|References|X-[\\w-]+)\\s*:"
         }
     ]
 }

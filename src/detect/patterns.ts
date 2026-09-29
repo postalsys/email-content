@@ -35,6 +35,8 @@ export interface PatternSets {
     replyHeaders: LinePattern[];
     forwardHeaders: LinePattern[];
     quotedHeaderFields: LinePattern[];
+    /** Phrases announcing that the reply is written into the quoted text. Matched anywhere in a line. */
+    inlineAnnouncements: LinePattern[];
     signatureDelimiters: LinePattern[];
     signaturePhrases: LinePattern[];
     disclaimerPhrases: LinePattern[];
@@ -190,6 +192,7 @@ export function countPatterns(sets: PatternSets): number {
         sets.replyHeaders.length +
         sets.forwardHeaders.length +
         sets.quotedHeaderFields.length +
+        sets.inlineAnnouncements.length +
         sets.signatureDelimiters.length +
         sets.signaturePhrases.length +
         sets.disclaimerPhrases.length +
@@ -251,6 +254,8 @@ function loadUncached(dir: string | null): { sets: PatternSets; source: PatternS
         replyHeaders: compileLinePatterns(files['reply-headers.json'].patterns, invalid),
         forwardHeaders: compileLinePatterns(files['forward-headers.json'].patterns, invalid),
         quotedHeaderFields: compileLinePatterns(files['quoted-headers.json'].fields, invalid),
+        // Optional, so an override directory written before the set existed still loads.
+        inlineAnnouncements: compileLinePatterns(files['reply-headers.json'].inlineAnnouncements, invalid),
         signatureDelimiters: compileLinePatterns(signatures.delimiters, invalid),
         signaturePhrases: compileLinePatterns(signatures.phrases, invalid),
         disclaimerPhrases: compileLinePatterns(files['disclaimers.json'].phrases, invalid),

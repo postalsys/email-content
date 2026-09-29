@@ -24,6 +24,13 @@ export interface LabelledBlock {
     hidden: boolean;
     /** Grouping key for per segment breakdowns, for example the client or the language. */
     group?: string;
+    /**
+     * Whether the extraction showed any text at all, across every part it emitted. The reference
+     * covers only the part that was annotated, so without this a message whose annotated part is
+     * rightly all history reads as empty even though its new content in another part is on
+     * screen. That was 98 of the 100 empty extractions against the gpt-6-sol corpus reference.
+     */
+    messageHasVisibleText?: boolean;
 }
 
 export interface LabelMetrics {
@@ -191,7 +198,7 @@ function catastrophic(rows: readonly LabelledBlock[]): CatastrophicCounts {
         if (authored.length && authored.every(block => block.hidden)) {
             counts.allNewContentRemoved++;
         }
-        if (!visible.length && blocks.some(block => block.charCount > 0)) {
+        if (!visible.length && blocks.some(block => block.charCount > 0) && blocks[0]?.messageHasVisibleText !== true) {
             counts.emptyExtraction++;
         }
         // A footer is a signature or a disclaimer, matching the benchmark's structural check, but

@@ -407,45 +407,46 @@ the practical ceiling; see [docs/annotation.md](docs/annotation.md).
 
 | property | measured |
 | --- | ---: |
-| block label agreement | 83.9% |
+| block label agreement | 84.2% |
 | new content characters retained | **100.0%** |
 | new content blocks retained | **100.0%** |
-| hidden content genuinely history | 99.7% |
-| reply history correctly hidden | 61.6% |
+| hidden content genuinely history | 99.9% |
+| reply history correctly hidden | 60.4% |
 | messages losing all new content | 0 |
 | messages losing an inline answer | 0 |
 
-Not one character the reference considers newly written is hidden, across 452 messages and 221,256
-characters of new content.
+Not one character the reference considers newly written is hidden, across 197,671 characters of
+new content. 426 of the 452 messages are scored: in the other 26 the annotated part is the
+alternative the extractor did not show, so there is nothing to compare against.
 
 Forwards are recognised by their subject, because several clients introduce a forward with the
 same separator they use for reply history; the forwarded message is kept as collapsed forwarded
 content rather than hidden. The reference annotator never sees the subject and calls about 340
 blocks in 33 such forwards history, which is most of the FORWARDED_CONTENT precision gap below.
 
-Per label F1: REPLY_HISTORY 93.5, NEW_CONTENT 80.3, INLINE_QUOTE 52.3, SIGNATURE 52.0,
-FORWARDED_CONTENT 44.5, DISCLAIMER 33.7.
+Per label F1: REPLY_HISTORY 93.8, NEW_CONTENT 80.2, INLINE_QUOTE 52.5, SIGNATURE 52.9,
+FORWARDED_CONTENT 43.9, DISCLAIMER 35.3.
 
 Recall is the number to read here, not F1. Precision is measured against a reference that labels
 every block, while the extractor deliberately leaves anything it cannot anchor visible, so an honest
-"I am not sure" scores as a miss. `REPLY_HISTORY` recall is 89.5 percent. `NEW_CONTENT` label recall
-is 92.7 percent, and the difference from the 100 percent character retention is entirely blocks the
+"I am not sure" scores as a miss. `REPLY_HISTORY` recall is 89.9 percent. `NEW_CONTENT` label recall
+is 93.8 percent, and the difference from the 100 percent character retention is entirely blocks the
 extractor labels `UNKNOWN`, which are always shown: an honest "not sure" costs label agreement,
 never content.
 
 With thread history available the numbers are materially better than the aggregate suggests, and a
 chat application always has the thread it is rendering:
 
-| | messages | agreement | history hidden |
+| | blocks | agreement | history hidden |
 | --- | ---: | ---: | ---: |
-| history available | 305 | 88.3% | 66.3% |
-| history unavailable | 147 | 69.8% | 45.9% |
+| history available | 6,270 | 92.8% | 67.2% |
+| history unavailable | 1,991 | 57.2% | 14.7% |
 
 ## Limitations
 
-- **It still errs towards showing too much.** Around 37 percent of reply history remains displayed.
+- **It still errs towards showing too much.** Around 40 percent of reply history remains displayed.
   That is the cheap direction of error and it is deliberate, but it is the largest remaining gap.
-- **Disclaimer recall is 20.9 percent** at 86.4 percent precision. The generic notification footer
+- **Disclaimer recall is 22.2 percent** at 85.4 percent precision. The generic notification footer
   shapes are covered; what remains is per-sender templates, which hand written rules cannot reach
   without overfitting to one vendor. This is the clearest case for a learned model.
 - **Signature recall is 39.6 percent** at 75.6 percent precision. Two independent signals are

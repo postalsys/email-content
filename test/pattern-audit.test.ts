@@ -68,7 +68,7 @@ describe('segment lookup', () => {
     });
 
     it('fills forward within a part and keeps parts apart', () => {
-        const lookup = segmentLookup(
+        const { lookup, emitted } = segmentLookup(
             [segment('1', 0, 'NEW_CONTENT', 'show'), segment('2', 0, 'SIGNATURE', 'collapse')],
             [segment('1', 3, 'REPLY_HISTORY', 'hide')]
         );
@@ -77,5 +77,8 @@ describe('segment lookup', () => {
         assert.deepEqual(lookup('2', 5), { label: 'SIGNATURE', hidden: false });
         // An annotation without a recorded part falls back to the first part the output used.
         assert.deepEqual(lookup(null, 4), { label: 'REPLY_HISTORY', hidden: true });
+        // A recorded part the output never used is not scored against some other part.
+        assert.equal(emitted('3'), false);
+        assert.equal(lookup('3', 0), null);
     });
 });

@@ -91,11 +91,42 @@ export function detectAttributionLine(line: string): Evidence | null {
     return best;
 }
 
+/**
+ * A sentence announcing that the reply is written into the quoted text: "my answers are inline",
+ * "Answers are in your letter". Evidence only; the rules decide what it changes, and only for
+ * authored text above the history. Lines are bounded like attribution lines so a hostile
+ * single-line body stays cheap.
+ */
+export function detectInlineAnnouncement(lines: readonly string[]): Evidence | null {
+    const patterns = loadPatterns().inlineAnnouncements;
+    for (const line of lines) {
+        if (line.length > 2000) {
+            continue;
+        }
+        const pattern = patterns.find(candidate => candidate.regex.test(line));
+        if (pattern) {
+            return { id: `announce:${pattern.id}`, kind: 'hint', strength: pattern.strength };
+        }
+    }
+    return null;
+}
+
 /** Is this run of header-shaped lines convincing enough to anchor a region? */
 function isStrong(roles: ReadonlySet<string>): boolean {
     // A convincing block names the originator plus at least a date or a subject, so that a
-    // pasted "To: ... Cc: ..." address list on its own does not qualify.
-    return roles.size >= MIN_FIELDS && roles.has('originator') && (roles.has('date') || roles.has('subject'));
+    // pasted "To: ... Cc: ..." address list on its own does not qualify. A transport field means a
+    // raw header dump, which clients never produce in a reply, so it disqualifies the chain.
+    return !roles.has('transport') && roles.size >= MIN_FIELDS && roles.has('originator') && (roles.has('date') || roles.has('subject'));
+}
+
+/**
+ * A field line that is really source code or prose: a lowercase field name ("from:" in a JavaScript
+ * object literal) or a value that ends in a comma. Client header blocks capitalise the field name
+ * in every language the patterns cover and never end a value with a comma. Measured on the corpus:
+ * a pasted nodemailer example hid the console output the sender asked about.
+ */
+function looksLikeCode(line: string, value: string): boolean {
+    return /^[a-z]/.test(line) || value.endsWith(',');
 }
 
 /**
@@ -185,7 +216,11 @@ export function detectQuotedHeaderBlock(lines: readonly string[], from = 0): Rep
         // Only fields whose value looks like a real header value count towards the threshold.
         // The line still continues the block either way, so a "Subject:" with unusual content
         // does not truncate an otherwise convincing header block.
-        if (role === 'originator' ? ORIGINATOR_VALUE.test(value) : role === 'date' ? DATE_VALUE.test(value) : true) {
+        if (role === 'transport') {
+            roles.add(role);
+        } else if (looksLikeCode(line, value)) {
+            // Continues the chain like any field line, but earns no role.
+        } else if (role === 'originator' ? ORIGINATOR_VALUE.test(value) : role === 'date' ? DATE_VALUE.test(value) : true) {
             roles.add(role);
         }
         last = j;

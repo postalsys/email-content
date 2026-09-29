@@ -502,6 +502,12 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
             return false;
         });
 
+    // The sweeps below must not reach into a forward. The forward region leaves the forwarded
+    // message's own footers as footers, and a sweep started by a header block nested inside the
+    // forward turned its disclaimer into hidden history: 73 corpus messages lost part of a forward
+    // that way, most of them Gmail forwards of an Outlook thread.
+    const insideForward = (index: number): boolean => forwardAnchor !== -1 && index >= forwardAnchor;
+
     if (forwardAnchor !== -1) {
         // Everything from the forward marker to the end is forwarded material. It is collapsed and
         // kept, never hidden: the sender included it deliberately.
@@ -644,7 +650,7 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
         const confidence = corroborated ? 0.96 : 0.9;
         for (let i = replyAnchor; i < limit; i++) {
             const decision = decisions[i];
-            if (!decision) {
+            if (!decision || insideForward(i)) {
                 continue;
             }
             if (decision.label === 'FORWARDED_CONTENT' || decision.label === 'INLINE_QUOTE') {
@@ -670,7 +676,7 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
         for (let i = separatorAnchor; i < blocks.length; i++) {
             const decision = decisions[i];
             const block = blocks[i];
-            if (!decision || !block) {
+            if (!decision || !block || insideForward(i)) {
                 continue;
             }
             if (decision.label === 'FORWARDED_CONTENT' || decision.label === 'REPLY_HISTORY' || decision.label === 'INLINE_QUOTE') {
@@ -726,8 +732,7 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
             // something the sender chose to pass on, however certainly it existed before. Both stay
             // collapsed, so a match confirms without ever crossing the hide threshold on its own.
             const trailingRegion = decision.reasons.includes('no_new_content_after_region');
-            const insideForward = forwardAnchor !== -1 && index >= forwardAnchor;
-            const ceiling = trailingRegion && !insideForward ? 0.98 : 0.94;
+            const ceiling = trailingRegion && !insideForward(index) ? 0.98 : 0.94;
             decision.confidence = Math.max(decision.confidence, ceiling);
             if (!decision.reasons.includes('matched_parent_message')) {
                 decision.reasons.push('matched_parent_message');
@@ -813,6 +818,32 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
         }
     }
 
+    // The sender said the reply is written into the quoted text ("my answers are inline", "Answers
+    // are in your letter"). Those answers carry no quote marker of their own, so the region rules
+    // cannot tell them from the quote around them and hid both. The directly quoted message, depth
+    // one or less, is kept visible as inline context; deeper history stays hidden. On the corpus
+    // this was rare (20 announcements in 14k messages) but each one lost the whole reply.
+    const firstHistory = decisions.findIndex(decision => decision.label === 'REPLY_HISTORY');
+    const announced =
+        firstHistory > 0 &&
+        decisions
+            .slice(0, firstHistory)
+            .some(
+                (decision, index) =>
+                    (decision.label === 'NEW_CONTENT' || decision.label === 'UNKNOWN') && blocks[index]?.evidence.some(item => item.id.startsWith('announce:'))
+            );
+    if (announced) {
+        for (let i = firstHistory; i < decisions.length; i++) {
+            const decision = decisions[i];
+            const block = blocks[i];
+            if (decision && block && decision.label === 'REPLY_HISTORY' && block.features.quoteDepth <= 1) {
+                decision.label = 'INLINE_QUOTE';
+                decision.confidence = 0.6;
+                decision.reasons = [...decision.reasons, 'interleaved_with_new_content', 'inline_answers_announced'];
+            }
+        }
+    }
+
     // In a forward, what the reply rules found is the forwarded message, not history. Several
     // clients introduce a forward with the same markup they use for replies ("-------- Original
     // Message --------", Outlook's #divRplyFwdMsg, quote containers), so without this the
@@ -828,6 +859,28 @@ export function classifyBlocks(blocks: readonly Block[], options: ClassifyOption
                 decision.reasons = [...decision.reasons, 'forward_by_subject'];
             }
         }
+    }
+
+    // A block that holds an embedded header block below lines the sender typed is never hidden or
+    // collapsed as a whole. The block still anchors the history after it, which the rules above
+    // have already used; only this block's own visibility changes. Showing the old headers is the
+    // cheap mistake, hiding the reply above them the expensive one. Measured against the
+    // gpt-6-sol corpus reference, this shape hid entire replies in Outlook-era HTML.
+    //
+    // Only the block where history begins. Outlook threads are flat, so every earlier message's
+    // sign-off is glued to the next separator the same way, and those lines belong to the history.
+    for (let i = 0; i < decisions.length; i++) {
+        const decision = decisions[i];
+        const block = blocks[i];
+        if (!decision || !block || (decision.label !== 'REPLY_HISTORY' && decision.label !== 'FORWARDED_CONTENT')) {
+            continue;
+        }
+        if (block.features.authoredLinesBeforeAnchor > 0) {
+            decision.label = 'UNKNOWN';
+            decision.confidence = 0.5;
+            decision.reasons = [...decision.reasons, 'authored_text_before_anchor', 'ambiguous_kept_visible'];
+        }
+        break;
     }
 
     // Final guard: a message must never come out as nothing but its own footer.

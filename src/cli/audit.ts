@@ -95,14 +95,22 @@ export async function auditCommand(args: ParsedArgs): Promise<number> {
         const diagnostics = result.diagnostics?.blocks ?? [];
         const primary = result.diagnostics?.primaryPart ?? '';
         const byCoordinates = new Map(diagnostics.map(block => [`${block.mimePart}|${block.sourceIndex}`, block]));
-        const lookup = segmentLookup(result.segments, result.hiddenSegments);
+        const { lookup, emitted } = segmentLookup(result.segments, result.hiddenSegments);
 
         for (const reference of references) {
+            if (!emitted(reference.mime_part)) {
+                unaligned++;
+                continue;
+            }
             // Same fallback as the segment lookup: an annotation without a part belongs to the
             // only part a single section message has.
             const block = byCoordinates.get(`${reference.mime_part ?? primary}|${reference.block_index}`);
             if (!block) {
                 unaligned++;
+                continue;
+            }
+            // Nothing left to show or hide; evaluate skips these too.
+            if (block.features.isAllBlank === true) {
                 continue;
             }
             const covering = lookup(reference.mime_part, reference.block_index);
@@ -123,7 +131,9 @@ export async function auditCommand(args: ParsedArgs): Promise<number> {
     }
     if (unaligned) {
         // Annotations made before a segmentation change can point at blocks that no longer exist.
-        process.stderr.write(`${unaligned} annotated block(s) no longer align with the current segmentation and were skipped\n`);
+        process.stderr.write(
+            `${unaligned} annotated block(s) belong to a part the extractor did not emit, or no longer align with the current segmentation, and were skipped\n`
+        );
     }
 
     const audit = auditPatterns(blocks);

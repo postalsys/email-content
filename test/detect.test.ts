@@ -180,6 +180,7 @@ describe('pattern loading is fail loud', () => {
             replyHeaders: [],
             forwardHeaders: [],
             quotedHeaderFields: [],
+            inlineAnnouncements: [],
             signatureDelimiters: [],
             signaturePhrases: [],
             disclaimerPhrases: [],
