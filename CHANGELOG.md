@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.10](https://github.com/postalsys/email-content/compare/v0.1.9...v0.1.10) (2026-09-30)
+
+
+### Bug Fixes
+
+* **deps:** update libmime to 5.4.6 and mailsplit to 5.4.19 ([fb1f778](https://github.com/postalsys/email-content/commit/fb1f778d351ff9d5eb076138ab0a742ec5b87c44))
+* stop hiding authored text found by the corpus-scale audit ([741b901](https://github.com/postalsys/email-content/commit/741b90140845937ff11a9fbc4cc336b189e67ab0))
+
 ## [0.1.9](https://github.com/postalsys/email-content/compare/v0.1.8...v0.1.9) (2026-09-29)
 
 
