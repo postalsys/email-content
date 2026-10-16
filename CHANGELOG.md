@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/postalsys/email-content/compare/v0.1.12...v0.1.13) (2026-10-16)
+
+
+### Bug Fixes
+
+* keep the reply-header and HTML segmentation detectors linear on hostile input ([f322cba](https://github.com/postalsys/email-content/commit/f322cba86fbc0ad342b3bfb600e738c74170a6be))
+
 ## [0.1.12](https://github.com/postalsys/email-content/compare/v0.1.11...v0.1.12) (2026-10-14)
 
 
