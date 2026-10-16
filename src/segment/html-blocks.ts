@@ -187,12 +187,17 @@ function isElement(node: Node): node is HTMLElement {
  *
  * Someone genuinely quoting HTML source escapes it as `&lt;table&gt;`, which is a text node with no
  * tags in it and is therefore untouched by this.
+ *
+ * Both patterns stop at the next `<` as well as at their own closer, so an opener with no closer
+ * is charged only for the text up to the next opener. With `[^\]]*` and `[^>]*` each of 80,000
+ * unclosed openers in one <pre> text node rescanned the rest of the node: 6.7 seconds per pattern
+ * on 240 KB.
  */
-const CONDITIONAL_COMMENT = /<!\[[^\]]*\]>/g;
+const CONDITIONAL_COMMENT = /<!\[[^\]<>]*\]>/g;
 // A doctype the parser left in a text node, which Outlook 2003 era mail repeats inside the body.
 // Someone quoting one in prose writes it escaped, as a text node without the literal bracket.
 const DOCTYPE = /<!doctype[^>]{0,200}>/gi;
-const LEAKED_MARKUP = /<[a-z][a-z0-9]*(?:\s[^>]*)?>/i;
+const LEAKED_MARKUP = /<[a-z][a-z0-9]*(?:\s[^<>]*)?>/i;
 
 /** Leading lines of a block, for line anchored detectors. */
 function firstLines(text: string, limit = 3): string[] {
@@ -398,12 +403,18 @@ export interface HtmlSegmentation {
  * @param mimePart part id for traceability
  */
 /**
- * Unclosed block tags tolerated before the DOM parse is skipped.
+ * Elements still open at the end of the document tolerated before the DOM parse is skipped.
  *
- * node-html-parser degrades badly on deeply unbalanced markup: 5,000 unclosed divs, which is only
- * 25 KB, take six and a half seconds inside the parser itself, before any of this module's code
- * runs. Size is not the signal, imbalance is. Real mail, including thoroughly broken real mail,
- * does not come close to this threshold.
+ * node-html-parser degrades cubically in the number of elements left open when the input ends: it
+ * removes each of them and re-appends its children to the grandparent, and every append rescans
+ * the growing child list. 5,000 unclosed divs, only 25 KB, take six and a half seconds inside the
+ * parser, and 5,000 unclosed `<b>` tags 26 seconds. Size is not the signal, what is left open is.
+ * Real mail, including thoroughly broken real mail, does not come close to this threshold.
+ *
+ * The count follows the parser's own closing rules rather than netting start tags against end
+ * tags, because the parser ignores an end tag that does not name the open element: a plain count
+ * is defeated by padding with end tags that close nothing. `<a><b><c>y</a></b>` nets one tag per
+ * copy and leaves three open, and 500 copies already cost 150 ms, with the cube still to come.
  */
 const MAX_UNCLOSED_TAGS = 500;
 
@@ -426,51 +437,204 @@ const MAX_UNCLOSED_TAGS = 500;
  */
 const MAX_TEXT_RUNS = 15000;
 
-const OPEN_BLOCK_TAG = /<(?:div|table|tr|td|span|p|blockquote|ul|ol|li|font)\b/gi;
-const CLOSE_BLOCK_TAG = /<\/(?:div|table|tr|td|span|p|blockquote|ul|ol|li|font)\b/gi;
+/** Both spellings of each name: the parser's tables and void list match the raw tag name. */
+function withUpperCase(names: readonly string[]): Set<string> {
+    return new Set(names.flatMap(name => [name, name.toUpperCase()]));
+}
 
-function countPattern(text: string, regex: RegExp): number {
-    regex.lastIndex = 0;
-    let count = 0;
-    while (regex.exec(text) !== null) {
-        count++;
+function closeTable(table: Readonly<Record<string, readonly string[]>>): Map<string, Set<string>> {
+    const map = new Map<string, Set<string>>();
+    for (const [parent, children] of Object.entries(table)) {
+        const set = withUpperCase(children);
+        map.set(parent, set);
+        map.set(parent.toUpperCase(), set);
     }
-    regex.lastIndex = 0;
-    return count;
+    return map;
+}
+
+/** node-html-parser's own void list, so only these spellings leave nothing open. */
+const VOID_TAGS = withUpperCase(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+
+/** Elements whose content the parser skips to the end tag without parsing. */
+const RAW_TEXT_TAGS = new Set(['script', 'noscript', 'style', 'pre']);
+
+/**
+ * The parser's implicit close rules, keyed by the open element. A start tag named in the first
+ * table closes it, an end tag named in the second closes it on the way to its own element, and an
+ * open <p> is also closed by the end tag of the element directly containing it, unless that
+ * element is one of the exceptions.
+ */
+const CLOSED_BY_OPENING = closeTable({
+    li: ['li'],
+    p: ['p', 'div'],
+    b: ['div'],
+    td: ['td', 'th'],
+    th: ['td', 'th'],
+    h1: ['h1'],
+    h2: ['h2'],
+    h3: ['h3'],
+    h4: ['h4'],
+    h5: ['h5'],
+    h6: ['h6'],
+    dt: ['dt', 'dd'],
+    dd: ['dt', 'dd']
+});
+const CLOSED_BY_CLOSING = closeTable({
+    li: ['ul', 'ol'],
+    a: ['div'],
+    b: ['div'],
+    i: ['div'],
+    p: ['div'],
+    td: ['tr', 'table'],
+    th: ['tr', 'table'],
+    dt: ['dl', 'body', 'html'],
+    dd: ['dl', 'body', 'html']
+});
+const P_NOT_CLOSED_BY = new Set(['a', 'audio', 'del', 'ins', 'map', 'noscript', 'video']);
+
+/** Where a tag name ends: the parser's name runs to whitespace or the end of the tag. */
+const TAG_NAME_END = /[\s>]/g;
+
+function isAsciiLetter(code: number): boolean {
+    return (code >= 97 && code <= 122) || (code >= 65 && code <= 90);
+}
+
+/** Apply an end tag to the open elements the way the parser does. */
+function closeElement(stack: string[], name: string): void {
+    while (stack.length) {
+        const top = stack[stack.length - 1] as string;
+        if (top === name) {
+            stack.pop();
+            return;
+        }
+        if (CLOSED_BY_CLOSING.get(top.toUpperCase())?.has(name)) {
+            stack.pop();
+            continue;
+        }
+        const below = stack[stack.length - 2];
+        if (top.toLowerCase() === 'p' && below !== undefined && below.toLowerCase() === name.toLowerCase() && !P_NOT_CLOSED_BY.has(name.toLowerCase())) {
+            stack.pop();
+            continue;
+        }
+        // Anything else is ignored, and what is open stays open.
+        return;
+    }
 }
 
 /**
- * Count non empty gaps between tags, stopping as soon as the cap is passed.
+ * The elements node-html-parser would leave open at the end of the document, and the number of
+ * text runs it would create, from one linear pass over the source.
  *
- * Matches the parser's own rule, which creates a text node for any non empty gap, whitespace
- * included, so an indented document counts its indentation.
+ * Tags are delimited the way the parser's markup pattern delimits them: a name starts with an
+ * ASCII letter right after `<` or `</` and runs to the next whitespace or `>`, a quoted attribute
+ * value may contain `>` when its closing quote exists, a comment or CDATA section is one unit, and
+ * the content of a raw text element is skipped to its end tag, or to the end of the input when
+ * there is none, which is where the parser stops too. A `<` that opens no tag is text. Searches
+ * for a delimiter that is not there are remembered, so an input full of unterminated quotes or
+ * comments does not rescan its suffix once per opener.
  */
-function exceedsTextRunCap(html: string): boolean {
-    let runs = 0;
+export function scanMarkup(html: string): { unclosedTags: number; textRuns: number } {
+    const stack: string[] = [];
+    let textRuns = 0;
+    const absent = new Set<string>();
+    const find = (needle: string, from: number): number => {
+        if (absent.has(needle)) {
+            return -1;
+        }
+        const at = html.indexOf(needle, from);
+        if (at === -1) {
+            absent.add(needle);
+        }
+        return at;
+    };
+
     let i = 0;
     while (i < html.length) {
         const lt = html.indexOf('<', i);
         if (lt === -1) {
-            return runs + 1 > MAX_TEXT_RUNS;
+            textRuns++;
+            break;
         }
-        if (lt > i && ++runs > MAX_TEXT_RUNS) {
-            return true;
+        if (lt > i) {
+            textRuns++;
         }
-        const gt = html.indexOf('>', lt + 1);
+        if (html.startsWith('<!--', lt)) {
+            const end = find('-->', lt + 4);
+            i = end === -1 ? lt + 4 : end + 3;
+            continue;
+        }
+        if (html.startsWith('<![CDATA[', lt)) {
+            const end = find(']]>', lt + 9);
+            i = end === -1 ? lt + 9 : end + 3;
+            continue;
+        }
+        const closing = html.charCodeAt(lt + 1) === 47;
+        const nameStart = lt + (closing ? 2 : 1);
+        if (!isAsciiLetter(html.charCodeAt(nameStart))) {
+            // Not a tag: a bare "<" in prose, a doctype, a processing instruction.
+            i = lt + 1;
+            continue;
+        }
+        TAG_NAME_END.lastIndex = nameStart;
+        const nameEnd = TAG_NAME_END.exec(html)?.index ?? html.length;
+
+        let gt = -1;
+        for (let p = nameEnd; p < html.length; p++) {
+            const code = html.charCodeAt(p);
+            if (code === 62) {
+                gt = p;
+                break;
+            }
+            if (code === 34 || code === 39) {
+                const close = find(html.charAt(p), p + 1);
+                if (close !== -1) {
+                    p = close;
+                }
+            }
+        }
         if (gt === -1) {
-            return false;
+            // Without a ">" no tag matches here or anywhere after, so the rest is text.
+            textRuns++;
+            break;
         }
         i = gt + 1;
+
+        let name = html.slice(nameStart, nameEnd);
+        const selfClosing = html.charCodeAt(gt - 1) === 47;
+        if (selfClosing && nameEnd === gt) {
+            // "<br/>": the slash belongs to the tag, not to the name.
+            name = name.slice(0, -1);
+        }
+        if (closing) {
+            closeElement(stack, name);
+            continue;
+        }
+        const top = stack[stack.length - 1];
+        if (!selfClosing && top !== undefined && CLOSED_BY_OPENING.get(top)?.has(name)) {
+            stack.pop();
+        }
+        if (RAW_TEXT_TAGS.has(name.toLowerCase())) {
+            const end = find(`</${name}>`, gt + 1);
+            if (end === -1) {
+                // The content runs to the end of the input, and the parser stops there.
+                stack.push(name);
+                break;
+            }
+            i = end + name.length + 3;
+            continue;
+        }
+        if (selfClosing || VOID_TAGS.has(name)) {
+            continue;
+        }
+        stack.push(name);
     }
-    return false;
+    return { unclosedTags: stack.length, textRuns };
 }
 
 /** True when markup is shaped badly enough that parsing it is not worth the time. */
 export function isPathologicalHtml(html: string): boolean {
-    if (countPattern(html, OPEN_BLOCK_TAG) - countPattern(html, CLOSE_BLOCK_TAG) > MAX_UNCLOSED_TAGS) {
-        return true;
-    }
-    return exceedsTextRunCap(html);
+    const { unclosedTags, textRuns } = scanMarkup(html);
+    return unclosedTags > MAX_UNCLOSED_TAGS || textRuns > MAX_TEXT_RUNS;
 }
 
 export function segmentHtmlBlocks(html: string, mimePart: string): HtmlSegmentation {

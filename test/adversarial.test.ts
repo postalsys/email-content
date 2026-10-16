@@ -18,7 +18,8 @@ import { analyze } from '../src/analyze';
 import { stripTagsToText } from '../src/canonical/html';
 import { detectAttributionLine, detectQuotedHeaderBlock } from '../src/detect/reply-header';
 import { extract } from '../src/index';
-import { isPathologicalHtml } from '../src/segment/html-blocks';
+import { isPathologicalHtml, scanMarkup, segmentHtmlBlocks } from '../src/segment/html-blocks';
+import { NodeType, type Node, parse } from 'node-html-parser';
 import { readFixture } from './helpers';
 
 /**
@@ -282,5 +283,168 @@ describe('hostile input stays bounded', () => {
         assert.ok(history, 'quoted history segment missing');
         assert.notEqual(history.visibility, 'show');
         assert.equal(history.type, 'REPLY_HISTORY');
+    });
+
+    it('keeps the originator value check cheap on a From: line of brackets', () => {
+        // `<[^>]*@[^>]*>` was cubic on a value of `<` characters followed by `@` characters: 1.5
+        // seconds for 3,000 characters, minutes for 20 KB. The value is capped like an attribution
+        // line, and the pattern itself no longer rescans the suffix once per opener.
+        const block = (count: number, length: number) => {
+            const openers = Math.floor(length / 3);
+            const from = `From: ${'<'.repeat(openers)}${'@'.repeat(length - openers)}`;
+            return [...Array.from({ length: count }, () => from), 'Sent: Monday, 13 January 2025 09:15', 'Subject: hi'];
+        };
+        const long = measure(() => detectQuotedHeaderBlock(block(1, 20000)));
+        assert.ok(long < 50, `a 20,000 character value took ${long.toFixed(1)}ms`);
+        assertLinear(
+            'bracket originator values',
+            [250, 500, 1000, 2000],
+            size => block(size, 300).join('\n'),
+            input => {
+                detectQuotedHeaderBlock(input.split('\n'));
+            }
+        );
+    });
+
+    it('still anchors on every address form in an embedded From: line', () => {
+        const rest = ['Sent: Monday, 13 January 2025 09:15', 'Subject: hi'];
+        for (const from of ['From: Bob <bob@example.com>', 'From: bob@example.com', 'From: Bob [bob@example.com]', 'From: Bob [mailto:bob@example.com]']) {
+            assert.ok(detectQuotedHeaderBlock([from, ...rest]), from);
+        }
+        assert.equal(detectQuotedHeaderBlock(['From: the address that sent the message', ...rest]), null);
+        // A value past the cap earns no role, so the block does not anchor on it.
+        assert.equal(detectQuotedHeaderBlock([`From: Bob <bob@example.com>${' x'.repeat(200)}`, ...rest]), null);
+    });
+
+    it('refuses to parse a document the parser would leave hundreds of elements open in', async () => {
+        // The guard counted a fixed list of block tags, so unclosed inline and sectioning tags
+        // reached node-html-parser, whose cleanup of the elements left open is cubic: 5,000
+        // unclosed <b> took 26 seconds and 10,000 took 206.
+        for (const unit of ['<b>x', '<i>', '<a href="#">x', '<section>x', '<center>x', '<font>x', '<Br>']) {
+            assert.equal(isPathologicalHtml(`<p>hi</p>${unit.repeat(5000)}`), true, unit);
+        }
+        // Elements the parser closes implicitly are not left open, whatever their number.
+        for (const unit of ['<p>para', '<li>item', '<td>cell', '<dt>term', '<h1>x', '<h2>a<h2>b', '<br>', '<img src="x">']) {
+            assert.equal(isPathologicalHtml(unit.repeat(5000)), false, unit);
+        }
+        assert.equal(isPathologicalHtml('<b>x</b>'.repeat(5000)), false);
+        assert.equal(isPathologicalHtml('<div><b>x</div>'.repeat(5000)), false);
+        assert.equal(isPathologicalHtml('<span><p>x</span>'.repeat(5000)), false);
+        assert.equal(isPathologicalHtml(`<pre>${'<b>'.repeat(5000)}</pre>`), false);
+        assert.equal(isPathologicalHtml(`<!--${'<b>'.repeat(5000)}-->`), false);
+
+        const html = `<p>SENTINEL</p>${'<b>x'.repeat(5000)}`;
+        const started = Date.now();
+        const result = await analyze({ html });
+        assert.ok(Date.now() - started < BUDGET_MS);
+        assert.ok(result.warnings.some(warning => warning.code === 'html_parse_error'));
+        assert.ok(result.segments.some(segment => segment.text.includes('SENTINEL')));
+    });
+
+    it('counts the elements an ignored end tag leaves open', () => {
+        // The parser ignores an end tag that does not name the open element, so a count of start
+        // tags against end tags is defeated by padding with end tags that close nothing: each of
+        // these copies nets at most one tag while leaving one to three open.
+        for (const unit of ['<a><b><c>y</a></b>', '<b>x</i>', '<td><font>x</td>', '<b>x</B>', '<b title="x></b>">', '<a>x</a!>', '<ul><li><b>x</ul>']) {
+            assert.equal(isPathologicalHtml(unit.repeat(1000)), true, unit);
+        }
+    });
+
+    it('counts open elements exactly as the parser does', () => {
+        // Checked against the tree node-html-parser builds when asked to leave open elements in
+        // place: for markup whose nesting comes only from what is left open, its element depth
+        // is the count the guard has to predict.
+        const parserDepth = (html: string): number => {
+            let deepest = 0;
+            const walk = (node: Node, depth: number) => {
+                if (depth > deepest) {
+                    deepest = depth;
+                }
+                for (const child of node.childNodes) {
+                    if (child.nodeType === NodeType.ELEMENT_NODE) {
+                        walk(child, depth + 1);
+                    }
+                }
+            };
+            walk(parse(html, { parseNoneClosedTags: true, comment: false }), 0);
+            return deepest;
+        };
+        const unbalanced = [
+            '<b>x',
+            '<a><b><c>y</a></b>',
+            '<b>x</i>',
+            '<td><font>x</td>',
+            '<b>x</B>',
+            '<b title="x></b>">',
+            '<a>x</a!>',
+            '<tr>',
+            '<Br>',
+            '<ul><li><b>x</ul>'
+        ];
+        for (const unit of unbalanced) {
+            const html = unit.repeat(20);
+            assert.equal(scanMarkup(html).unclosedTags, parserDepth(html), unit);
+        }
+        for (const unit of [
+            '<p>para',
+            '<li>item',
+            '<td>cell',
+            '<h2>a<h2>b',
+            '<div><b>x</div>',
+            '<span><p>x</span>',
+            '<b>x</b>',
+            `<pre>${'<b>'.repeat(5)}</pre>`,
+            '<!--<b>-->',
+            '<br/>',
+            '<div/>'
+        ]) {
+            const html = unit.repeat(20);
+            assert.ok(scanMarkup(html).unclosedTags <= 1, `${unit}: ${scanMarkup(html).unclosedTags} left open`);
+        }
+    });
+
+    it('scans markup for open elements in a single pass', () => {
+        for (const [label, unit] of [
+            ['unclosed tags', '<b>x'],
+            ['unterminated quotes', '<a "'],
+            ['unterminated comments', '<!--'],
+            ['unterminated raw text elements', '<pre>x']
+        ] as const) {
+            assertLinear(
+                label,
+                [8000, 16000, 32000, 64000],
+                size => unit.repeat(size),
+                input => {
+                    isPathologicalHtml(input);
+                }
+            );
+        }
+    });
+
+    it('projects leaked markup in a <pre> text node in linear time', () => {
+        // `[^>]*` and `[^\]]*` rescanned the rest of the node once per opener: 6.7 seconds per
+        // pattern on 240 KB of either unit.
+        for (const [label, unit] of [
+            ['unclosed tags in a pre', '<a '],
+            ['unclosed conditional comments in a pre', '<![']
+        ] as const) {
+            assertLinear(
+                label,
+                [10000, 20000, 40000, 80000],
+                size => `<pre>${unit.repeat(size)}</pre>`,
+                input => {
+                    segmentHtmlBlocks(input, '1');
+                }
+            );
+        }
+        // The markup a <pre> hides from the parser still projects as the reader sees it.
+        const result = segmentHtmlBlocks('<pre><![if !supportLists]><table><tr><td>cell</td></tr></table><![endif]></pre>', '1');
+        assert.equal(
+            result.blocks
+                .map(block => block.content)
+                .join('')
+                .trim(),
+            'cell'
+        );
     });
 });

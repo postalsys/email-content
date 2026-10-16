@@ -30,8 +30,20 @@ const MIN_FIELDS = 3;
  * "From: the address that sent the message", which appears in `text-mentions-headers.eml` and in
  * real support mail often enough to matter. Without it, an instruction list describing email
  * headers is classified as reply history and disappears.
+ *
+ * The bracketed forms exclude their own opening delimiter on both sides of the `@`, so an opener
+ * is charged only for the text up to the next one. With `<[^>]*@[^>]*>` every `<` in a run of them
+ * rescanned all the `@` characters that followed: cubic, 1.5 seconds on a 3,000 character line
+ * and minutes on 20 KB.
  */
-const ORIGINATOR_VALUE = /(@[\w-]+\.[\w.-]+|<[^>]*@[^>]*>|mailto:|\[[^\]]*@[^\]]*\])/i;
+const ORIGINATOR_VALUE = /(@[\w-]+\.[\w.-]+|<[^<>@]*@[^<>]*>|mailto:|\[[^[\]@]*@[^[\]]*\])/i;
+
+/**
+ * Longest field value the originator and date checks run on. A real From: or Sent: value is far
+ * shorter, and the attribution line detector already rejects lines past this length. A longer
+ * value still continues the block, like any value that fails its check, but earns no role.
+ */
+const MAX_CHECKED_VALUE_LENGTH = 300;
 
 /**
  * A date field carries something date shaped: a numeric date, a month name, or a clock time.
@@ -220,7 +232,11 @@ export function detectQuotedHeaderBlock(lines: readonly string[], from = 0): Rep
             roles.add(role);
         } else if (looksLikeCode(line, value)) {
             // Continues the chain like any field line, but earns no role.
-        } else if (role === 'originator' ? ORIGINATOR_VALUE.test(value) : role === 'date' ? DATE_VALUE.test(value) : true) {
+        } else if (role === 'originator' || role === 'date') {
+            if (value.length <= MAX_CHECKED_VALUE_LENGTH && (role === 'originator' ? ORIGINATOR_VALUE : DATE_VALUE).test(value)) {
+                roles.add(role);
+            }
+        } else {
             roles.add(role);
         }
         last = j;
