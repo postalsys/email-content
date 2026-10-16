@@ -15,10 +15,10 @@
  * constant stayed at its initial value, so every stored result claimed a version that no longer
  * described the code that produced it.
  */
-export const EXTRACTOR_VERSION = '0.1.12'; // x-release-please-version
+export const EXTRACTOR_VERSION = '0.1.13'; // x-release-please-version
 
 /** Version of the corpus processing pipeline (scanner, feature extraction, storage schema). */
-export const PROCESSING_VERSION = '0.1.12'; // x-release-please-version
+export const PROCESSING_VERSION = '0.1.13'; // x-release-please-version
 
 /**
  * Invalid caller configuration.
