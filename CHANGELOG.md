@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.14](https://github.com/postalsys/email-content/compare/v0.1.13...v0.1.14) (2026-10-16)
+
+
+### Bug Fixes
+
+* bump mailsplit, libmime and mailparser to the releases with linear parsers ([49118d4](https://github.com/postalsys/email-content/commit/49118d45ce8dae19ba687cd8211adea556c2fb2a))
+
 ## [0.1.13](https://github.com/postalsys/email-content/compare/v0.1.12...v0.1.13) (2026-10-16)
 
 
