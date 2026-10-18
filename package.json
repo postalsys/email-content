@@ -60,16 +60,16 @@
         "update": "rm -rf node_modules package-lock.json && ncu -u && npm install"
     },
     "dependencies": {
-        "@zone-eu/mailsplit": "5.4.23",
+        "@zone-eu/mailsplit": "5.4.25",
         "libmime": "5.4.9",
         "node-html-parser": "9.0.4"
     },
     "devDependencies": {
         "@eslint/js": "10.0.1",
         "@types/node": "26.6.5",
-        "eslint": "10.12.0",
+        "eslint": "10.13.0",
         "eslint-config-prettier": "10.1.8",
-        "mailparser": "3.9.40",
+        "mailparser": "3.9.42",
         "prettier": "3.9.10",
         "typescript": "5.9.3",
         "typescript-eslint": "8.71.2"
