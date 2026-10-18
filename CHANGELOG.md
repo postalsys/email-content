@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/postalsys/email-content/compare/v0.1.14...v0.1.15) (2026-10-18)
+
+
+### Bug Fixes
+
+* bump @zone-eu/mailsplit to 5.4.25 ([4190d2d](https://github.com/postalsys/email-content/commit/4190d2d11b03c0545d99373ba3c0f026c2a94c65))
+
 ## [0.1.14](https://github.com/postalsys/email-content/compare/v0.1.13...v0.1.14) (2026-10-16)
 
 
