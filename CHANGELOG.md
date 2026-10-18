@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/postalsys/email-content/compare/v0.1.15...v0.1.16) (2026-10-18)
+
+
+### Bug Fixes
+
+* bump libmime to 5.5.1 and @zone-eu/mailsplit to 5.4.26 ([a11fd53](https://github.com/postalsys/email-content/commit/a11fd53eb3e930610e5c0181b3fa610c6e9536ac))
+
 ## [0.1.15](https://github.com/postalsys/email-content/compare/v0.1.14...v0.1.15) (2026-10-18)
 
 
