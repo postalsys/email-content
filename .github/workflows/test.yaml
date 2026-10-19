@@ -21,7 +21,7 @@ jobs:
         # 24 is the development runtime. The corpus tooling needs node:sqlite (Node 22.5+). 20 is the
         # oldest runtime the published library supports, and is tested because consumers such as
         # EmailEngine run it.
-        node-version: [20.x, 22.x, 24.x]
+        node-version: [20.x, 22.x, 24.x, latest]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
