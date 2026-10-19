@@ -121,10 +121,11 @@ further with `--test-name-pattern="<name>"`. ESLint is the shared Postal Systems
 CommonJS form of nodemailer's), with repo-specific overrides at the end of `eslint.config.js`.
 
 `typescript` is held on 6.x in `.ncurc.js` (TypeScript 7, the native port, is a deliberate
-migration). TypeScript 6 deprecates `moduleResolution: "node"`, so `tsconfig.json` sets
-`ignoreDeprecations: "6.0"`; the emitted `dist/` is byte-identical to what 5.9.3 produced. Moving
-to `node16` resolution is not a drop-in (dynamic imports need `.js` extensions, 4 files emit
-differently).
+migration). `tsconfig.json` pairs `module: "commonjs"` with `moduleResolution: "bundler"`, which
+reads package `exports` maps under the `require` condition, so subpath imports such as
+`libmime/lib/charset` resolve to the dependency's own typings without ambient stubs, and the
+emitted `dist/` is the same as under the old `node` resolution. `node16` resolution is not a
+drop-in: it emits dynamic `import()` natively, which needs `.js` extensions and changes 4 files.
 
 ## Before committing
 
