@@ -54,6 +54,7 @@
         "format": "prettier --write \"**/*.{js,cjs,ts,json,md}\"",
         "format:check": "prettier --check \"**/*.{js,cjs,ts,json,md}\"",
         "test": "npm run build:test && node --test .build-test/test/*.test.js",
+        "test:cjs": "NODE_OPTIONS=--no-experimental-require-module npm test",
         "test:coverage": "c8 --reporter=text --reporter=lcov npm test",
         "test:fast": "node --test test/*.test.ts",
         "prepublishOnly": "npm run build",

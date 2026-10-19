@@ -33,6 +33,9 @@ jobs:
       - run: npm run format:check
       - run: npm run build
       - run: npm test
+      - name: CommonJS dependency graph (require(esm) disabled)
+        if: matrix.node-version != '20.x'
+        run: npm run test:cjs
       # The committed fixture tier of the structural benchmark. Small, deterministic, and mandatory
       # on every pull request. It exits non zero when any message that had visible body text going
       # in produced no output, or when content was hidden without a structural anchor. The private
