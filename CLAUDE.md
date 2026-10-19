@@ -33,17 +33,17 @@ These invariants are enforced by tests, not by convention. Do not weaken them:
 
 ## Layout
 
-| path | contents |
-| --- | --- |
-| `src/mime/` | Stage 1: mailsplit walk, charset chain, normalised message model, body plan |
-| `src/canonical/` | Stage 2: plain text and HTML canonicalisation |
-| `src/segment/` | Stage 3: block segmentation and the inspectable feature vector |
-| `src/detect/` | Stage 4: detectors. Patterns live in `patterns/*.json`, not in code |
-| `src/match/` | Stage 5: normalisation, shingles, history matching |
-| `src/classify/` | Stages 6 to 8: rules, reconciliation, confidence bands |
-| `src/corpus/` | Scanner, worker pool, SQLite store, migrations, sampling |
-| `src/annotate/` | Optional LLM annotator. The only code that touches the network |
-| `src/eval/` | Metrics and the benchmark's independent safety oracles |
+| path             | contents                                                                    |
+| ---------------- | --------------------------------------------------------------------------- |
+| `src/mime/`      | Stage 1: mailsplit walk, charset chain, normalised message model, body plan |
+| `src/canonical/` | Stage 2: plain text and HTML canonicalisation                               |
+| `src/segment/`   | Stage 3: block segmentation and the inspectable feature vector              |
+| `src/detect/`    | Stage 4: detectors. Patterns live in `patterns/*.json`, not in code         |
+| `src/match/`     | Stage 5: normalisation, shingles, history matching                          |
+| `src/classify/`  | Stages 6 to 8: rules, reconciliation, confidence bands                      |
+| `src/corpus/`    | Scanner, worker pool, SQLite store, migrations, sampling                    |
+| `src/annotate/`  | Optional LLM annotator. The only code that touches the network              |
+| `src/eval/`      | Metrics and the benchmark's independent safety oracles                      |
 
 `analyze()` is the core entry point and takes already parsed content. `extract()` parses raw RFC 5322
 and delegates to it. Never duplicate pipeline logic between them: anything `extract()` can express

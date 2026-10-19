@@ -37,11 +37,11 @@ and runs on **Node 20 or later**. Nothing in the dependency tree is native and n
 only. There are exactly three direct runtime dependencies, each present for correctness rather than
 convenience:
 
-| dependency | why |
-| --- | --- |
+| dependency           | why                                                                                                                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@zone-eu/mailsplit` | The only local MIME parser that walks the tree non-destructively, emitting raw header and body bytes in document order with IMAP style part numbers. That is what makes every segment traceable to exact source bytes. |
-| `libmime` | Header encoded-word decoding, charset handling and `format=flowed` unfolding. |
-| `node-html-parser` | A forgiving HTML parser that exposes a source `range` on every node, which is what lets an HTML block point back at the offsets it came from. |
+| `libmime`            | Header encoded-word decoding, charset handling and `format=flowed` unfolding.                                                                                                                                          |
+| `node-html-parser`   | A forgiving HTML parser that exposes a source `range` on every node, which is what lets an HTML block point back at the offsets it came from.                                                                          |
 
 The corpus tooling shipped in the same package (`corpus`, `annotate`, `evaluate`, `audit`, `benchmark`)
 needs **Node 22.5 or later**, because it uses the built in `node:sqlite`. That module is loaded
@@ -80,10 +80,10 @@ have a raw message to hand.
 const { analyze } = require('@postalsys/email-content');
 
 const result = await analyze({
-    text: plainTextBody,   // optional
-    html: htmlBody,        // optional
-    subject: 'Re: Deploy window',     // optional
-    from: 'Bob <bob@example.net>',    // optional, improves signature detection
+    text: plainTextBody, // optional
+    html: htmlBody, // optional
+    subject: 'Re: Deploy window', // optional
+    from: 'Bob <bob@example.net>', // optional, improves signature detection
     inReplyTo: '<parent@example.com>' // optional
 });
 
@@ -108,34 +108,35 @@ Both entry points return the same shape. `extract()` adds nothing except optiona
 
 ```jsonc
 {
-  "segments": [                  // render these
-    {
-      "type": "NEW_CONTENT",
-      "text": "No, wait until Monday.",
-      "html": "<div>No, wait until Monday.</div>",   // UNTRUSTED, see the security section
-      "confidence": 0.95,
-      "visibility": "show",      // show | collapse | hide
-      "reasons": ["new_content_default", "html_primary_representation"],
-      "source": {
-        "kind": "mime-part",     // "mime-part" | "raw-message"
-        "mimePart": "1.2",       // IMAP style part path
-        "representation": "html",
-        "blockIndex": 0,         // position within this part, not within the whole message
-        "start": 0,              // offsets: canonical text for "text", the HTML source for "html"
-        "end": 79,
-        "domPath": "/0/1"
-      }
-    }
-  ],
-  "hiddenSegments": [ /* same shape, retained in full */ ],
-  "overallConfidence": 0.97,
-  "warnings": [],
-  "originalAvailable": true,
-  "primaryRepresentation": "html",
-  "extractorVersion": "<current package version>",
-  "historyUsed": false,
-  "isReply": true,
-  "canonicalText": {}            // part id -> canonical plain text, for "text" segment offsets
+    "segments": [
+        // render these
+        {
+            "type": "NEW_CONTENT",
+            "text": "No, wait until Monday.",
+            "html": "<div>No, wait until Monday.</div>", // UNTRUSTED, see the security section
+            "confidence": 0.95,
+            "visibility": "show", // show | collapse | hide
+            "reasons": ["new_content_default", "html_primary_representation"],
+            "source": {
+                "kind": "mime-part", // "mime-part" | "raw-message"
+                "mimePart": "1.2", // IMAP style part path
+                "representation": "html",
+                "blockIndex": 0, // position within this part, not within the whole message
+                "start": 0, // offsets: canonical text for "text", the HTML source for "html"
+                "end": 79,
+                "domPath": "/0/1"
+            }
+        }
+    ],
+    "hiddenSegments": [/* same shape, retained in full */],
+    "overallConfidence": 0.97,
+    "warnings": [],
+    "originalAvailable": true,
+    "primaryRepresentation": "html",
+    "extractorVersion": "<current package version>",
+    "historyUsed": false,
+    "isReply": true,
+    "canonicalText": {} // part id -> canonical plain text, for "text" segment offsets
 }
 ```
 
@@ -160,7 +161,7 @@ A few fields are easy to misread:
   parsing failed outright and there is no part structure to point at.
 - **`isReply: false`** means "not known to be a reply". When parsing fails there are no threading
   headers to read, and the result carries a `reply_status_unknown` warning to say so.
-- **`source.start` / `source.end`** on a plain text segment index the *canonical* part text, not
+- **`source.start` / `source.end`** on a plain text segment index the _canonical_ part text, not
   the string you passed in: line endings become LF, a leading BOM and NUL characters are removed,
   and the text is NFC normalised. Slice `result.canonicalText[source.mimePart]`, which holds that
   string for every plain text part the segments came from. HTML segments index the HTML source
@@ -188,7 +189,7 @@ left visible from 70.9 percent to 60.1 percent, with no loss of new content.
 ```js
 const result = await analyze(
     { text, html },
-    { history: [{ text: parentText, html: parentHtml }] }   // nearest ancestor first
+    { history: [{ text: parentText, html: parentHtml }] } // nearest ancestor first
 );
 ```
 
@@ -285,13 +286,13 @@ need for isolation.
 ```js
 const result = await extract(raw, {
     parse: {
-        maxMessageBytes: 64 * 1024 * 1024,        // whole raw message
+        maxMessageBytes: 64 * 1024 * 1024, // whole raw message
         maxTotalDecodedTextBytes: 16 * 1024 * 1024, // decoded text across every part
-        maxTextPartBytes: 1024 * 1024,            // decoded text per part
+        maxTextPartBytes: 1024 * 1024, // decoded text per part
         maxParts: 500,
         maxHeadSize: 1024 * 1024
     },
-    confidence: { collapseThreshold: 0.7 }        // partial: the rest keep their defaults
+    confidence: { collapseThreshold: 0.7 } // partial: the rest keep their defaults
 });
 
 const result2 = await analyze({ text, html }, { maxContentChars: 8_000_000 });
@@ -303,10 +304,10 @@ and a startup crash on a value you chose deliberately protects nobody: `maxTextP
 
 **Malformed input and invalid configuration are handled differently, on purpose.**
 
-| | behaviour |
-| --- | --- |
+|                       | behaviour                                                    |
+| --------------------- | ------------------------------------------------------------ |
 | Malformed **message** | Degrades. Never throws. Returns what it can, plus a warning. |
-| Invalid **option** | Throws `ConfigurationError` before any processing. |
+| Invalid **option**    | Throws `ConfigurationError` before any processing.           |
 
 A bad message is the sender's doing and the caller cannot fix it. A bad option is the programmer's
 own mistake, it will repeat on every message, and returning a plausible looking degraded result for
@@ -405,15 +406,15 @@ conventions, and **98.5 percent** once three messages are excluded in which a si
 judgment flips every block at once. 392 of the 452 messages agree on every single block. That is
 the practical ceiling; see [docs/annotation.md](docs/annotation.md).
 
-| property | measured |
-| --- | ---: |
-| block label agreement | 84.2% |
-| new content characters retained | **100.0%** |
-| new content blocks retained | **100.0%** |
-| hidden content genuinely history | 99.9% |
-| reply history correctly hidden | 60.4% |
-| messages losing all new content | 0 |
-| messages losing an inline answer | 0 |
+| property                         |   measured |
+| -------------------------------- | ---------: |
+| block label agreement            |      84.2% |
+| new content characters retained  | **100.0%** |
+| new content blocks retained      | **100.0%** |
+| hidden content genuinely history |      99.9% |
+| reply history correctly hidden   |      60.4% |
+| messages losing all new content  |          0 |
+| messages losing an inline answer |          0 |
 
 Not one character the reference considers newly written is hidden, across 197,671 characters of
 new content. 426 of the 452 messages are scored: in the other 26 the annotated part is the
@@ -437,10 +438,10 @@ never content.
 With thread history available the numbers are materially better than the aggregate suggests, and a
 chat application always has the thread it is rendering:
 
-| | blocks | agreement | history hidden |
-| --- | ---: | ---: | ---: |
-| history available | 6,270 | 92.8% | 67.2% |
-| history unavailable | 1,991 | 57.2% | 14.7% |
+|                     | blocks | agreement | history hidden |
+| ------------------- | -----: | --------: | -------------: |
+| history available   |  6,270 |     92.8% |          67.2% |
+| history unavailable |  1,991 |     57.2% |          14.7% |
 
 ## Limitations
 
@@ -483,15 +484,15 @@ The corpus this was built against is private email, and the project is built acc
 
 ## Documentation
 
-| document | contents |
-| --- | --- |
-| [docs/architecture.md](docs/architecture.md) | Pipeline stages, dependency choices and why, safety invariants |
+| document                                                                                         | contents                                                                                    |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)                                                     | Pipeline stages, dependency choices and why, safety invariants                              |
 | [docs/adr-001-document-global-classification.md](docs/adr-001-document-global-classification.md) | Why multipart sections are classified as one sequence, and the two index spaces that follow |
-| [docs/implementation-plan.md](docs/implementation-plan.md) | Phases, decisions taken, open questions |
-| [docs/threat-model.md](docs/threat-model.md) | What is stored, what it reveals, hostile content handling |
-| [docs/corpus-report.md](docs/corpus-report.md) | Statistics over the working corpus (generated, gitignored) |
-| [docs/benchmark.md](docs/benchmark.md) | Throughput, memory, and where the time goes |
-| [docs/annotation.md](docs/annotation.md) | Using an LLM as annotator: method, results, limitations |
+| [docs/implementation-plan.md](docs/implementation-plan.md)                                       | Phases, decisions taken, open questions                                                     |
+| [docs/threat-model.md](docs/threat-model.md)                                                     | What is stored, what it reveals, hostile content handling                                   |
+| [docs/corpus-report.md](docs/corpus-report.md)                                                   | Statistics over the working corpus (generated, gitignored)                                  |
+| [docs/benchmark.md](docs/benchmark.md)                                                           | Throughput, memory, and where the time goes                                                 |
+| [docs/annotation.md](docs/annotation.md)                                                         | Using an LLM as annotator: method, results, limitations                                     |
 
 ## Project layout
 

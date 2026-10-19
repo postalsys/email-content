@@ -6,14 +6,7 @@
         "timeout": 300,
         "shortLogin": false,
         "lowerLogin": true,
-        "sasl": [
-            "SCRAM-SHA3-512",
-            "SCRAM-SHA-512",
-            "SCRAM-SHA-256",
-            "SCRAM-SHA-1",
-            "PLAIN",
-            "LOGIN"
-        ],
+        "sasl": ["SCRAM-SHA3-512", "SCRAM-SHA-512", "SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN", "LOGIN"],
         "ssl": {
             "verify_peer": false,
             "verify_peer_name": false,
@@ -22,12 +15,7 @@
             "disable_compression": true,
             "security_level": 1
         },
-        "disabled_capabilities": [
-            "METADATA",
-            "OBJECTID",
-            "PREVIEW",
-            "STATUS=SIZE"
-        ],
+        "disabled_capabilities": ["METADATA", "OBJECTID", "PREVIEW", "STATUS=SIZE"],
         "use_expunge_all_on_delete": false,
         "fast_simple_search": true,
         "force_select": false,
@@ -42,14 +30,7 @@
         "timeout": 60,
         "shortLogin": false,
         "lowerLogin": true,
-        "sasl": [
-            "SCRAM-SHA3-512",
-            "SCRAM-SHA-512",
-            "SCRAM-SHA-256",
-            "SCRAM-SHA-1",
-            "PLAIN",
-            "LOGIN"
-        ],
+        "sasl": ["SCRAM-SHA3-512", "SCRAM-SHA-512", "SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN", "LOGIN"],
         "ssl": {
             "verify_peer": false,
             "verify_peer_name": false,
@@ -69,14 +50,7 @@
         "timeout": 10,
         "shortLogin": false,
         "lowerLogin": true,
-        "sasl": [
-            "SCRAM-SHA3-512",
-            "SCRAM-SHA-512",
-            "SCRAM-SHA-256",
-            "SCRAM-SHA-1",
-            "PLAIN",
-            "LOGIN"
-        ],
+        "sasl": ["SCRAM-SHA3-512", "SCRAM-SHA-512", "SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN", "LOGIN"],
         "ssl": {
             "verify_peer": false,
             "verify_peer_name": false,
