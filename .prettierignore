@@ -1,0 +1,13 @@
+node_modules
+coverage
+dist
+.build-test
+package-lock.json
+CHANGELOG.md
+# Private corpus artefacts and generated reports (gitignored)
+data
+annotations
+docs/corpus-report.md
+tools/client-capture/.state
+# Fixtures are inputs and recorded expectations, kept byte for byte
+test/fixtures

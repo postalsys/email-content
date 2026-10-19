@@ -21,3 +21,4 @@ docs/corpus-report.md
 
 # Client capture harness: account credentials, browser profiles and raw captures before review.
 tools/client-capture/.state/
+coverage/
