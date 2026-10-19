@@ -78,9 +78,34 @@ every message must not look like one more degraded result.
   output, never the sources.
 - Exact dependency versions, no `^` or `~`.
 - Conventional Commits, release-please owns the version and CHANGELOG. Never edit them by hand.
+  `fix:` cuts a patch release and `feat:` a minor one, so tooling, docs, CI and formatting changes
+  use `chore:`, `build:`, `ci:`, `docs:`, `test:` or `style:`.
+- No `Co-Authored-By` trailer and no AI assistant attribution in commit messages or PR descriptions.
+- `[skip ci]` may be appended to commits that do not change runtime behaviour, but never to a `fix:`
+  or `feat:` commit: those must run so the release workflow triggers. GitHub reads the marker off the
+  HEAD commit of a push, so a skipped commit pushed on top of a `fix:` silences both.
 - No emojis. Printable ASCII in code. No em or en dashes in prose, use commas or restructure.
 - Document non-obvious heuristics with the reason and, where there is one, the measurement that
   motivated them.
+
+## Commands
+
+```bash
+npm run build          # tsc to dist/ plus the pattern assets
+npm test               # compiles src and test to .build-test/, then node --test on the output
+npm run test:coverage  # the same under c8
+npm run lint           # typecheck, then eslint over the whole repo
+npm run lint:fix
+npm run format         # prettier over js, cjs, ts, json and md; see .prettierignore
+npm run format:check
+```
+
+A single test file: `npm run build:test && node --test .build-test/test/extract.test.js`. Narrow
+further with `--test-name-pattern="<name>"`. ESLint is the shared Postal Systems flat config (the
+CommonJS form of nodemailer's), with repo-specific overrides at the end of `eslint.config.js`.
+
+`typescript` is held on 5.x in `.ncurc.js`. TypeScript 6 builds byte-identical output but rejects
+`moduleResolution: "node"` without `ignoreDeprecations: "6.0"`, so moving is a tsconfig decision.
 
 ## Before committing
 
