@@ -62,13 +62,7 @@ every message must not look like one more degraded result.
 
 ## Conventions
 
-- TypeScript, strict, compiled to CommonJS. Every runtime dependency must be CJS safe and pure
-  JavaScript, because this is consumed by EmailEngine, which forbids native modules and ESM and is
-  bundled with `@yao-pkg/pkg`.
-- **The library runs on Node 20; the corpus tooling needs Node 22.5 for `node:sqlite`.** Keep that
-  split: nothing reachable from `src/index.ts` may use an API newer than Node 20, and `node:sqlite`
-  stays lazily loaded so requiring the package never pulls it in. CI tests both runtimes. The Node 20
-  floor is for source installs; EmailEngine's pkg binaries are built against Node 24.
+- TypeScript, strict, compiled to CommonJS. See Platform constraints below for the Node and module format rules.
 - **Pattern files must stay loadable through `path.join(__dirname, 'patterns')`.** That exact form is
   what lets @yao-pkg/pkg bundle them without any asset configuration. Computing the path any other
   way would break single file binaries, and the symptom is silent: no detectors, no error. Verified
@@ -88,11 +82,33 @@ every message must not look like one more degraded result.
 - Document non-obvious heuristics with the reason and, where there is one, the measurement that
   motivated them.
 
+## Platform constraints
+
+- **Node.js 20 is the minimum supported version for the library** (`engines.node` is `>=20.0.0`); the
+  corpus tooling needs Node 22.5 for `node:sqlite`. Keep that split: nothing reachable from
+  `src/index.ts` may use an API newer than Node 20, and `node:sqlite` stays lazily loaded so requiring
+  the package never pulls it in. CI tests 20, 22 and 24. The Node 20 floor is for source installs;
+  EmailEngine's pkg binaries are built against Node 24.
+- **Everything that reaches runtime must be genuinely CommonJS-loadable and pure JavaScript.**
+  EmailEngine consumes this package and ships as a single-file binary built with `@yao-pkg/pkg`, which
+  snapshots a CommonJS module graph and cannot load ES modules or native addons. `require()` of
+  `dist/index.js` and of every runtime dependency must work with `--no-experimental-require-module`:
+  Node 22+ (and 20.19) enable require(esm) by default, which hides an ESM-only dependency until the
+  pkg binary fails. A CommonJS entry that only wraps a dynamic `import()` of ESM code does not count
+  (the `await import('./...')` calls in `src/cli/` and `src/corpus/` load this package's own modules
+  and compile to `require()`).
+- **How to check:** `npm run test:cjs` runs the whole compiled suite under
+  `NODE_OPTIONS=--no-experimental-require-module`; CI runs it on Node 22 and 24.
+- **Pins:** never add or upgrade to an ESM-only dependency. Hold the last CommonJS major in
+  `.ncurc.js` (`reject`, or `target` as done for `typescript`) with a comment giving the reason;
+  `npm run update` honors it.
+
 ## Commands
 
 ```bash
 npm run build          # tsc to dist/ plus the pattern assets
 npm test               # compiles src and test to .build-test/, then node --test on the output
+npm run test:cjs       # the same with require(esm) disabled (CommonJS graph guard)
 npm run test:coverage  # the same under c8
 npm run lint           # typecheck, then eslint over the whole repo
 npm run lint:fix
