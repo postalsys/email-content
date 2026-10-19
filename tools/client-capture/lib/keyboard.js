@@ -61,7 +61,6 @@ async function writeScenario(page, editor, scenario, placement) {
         } else {
             await editor.evaluate(
                 (el, [src, inline]) => {
-                    // eslint-disable-next-line no-new-func
                     new Function(`return ${src}`)()(el, inline);
                     el.dispatchEvent(new Event('input', { bubbles: true }));
                 },

@@ -12,7 +12,6 @@
  */
 
 const fs = require('node:fs');
-const path = require('node:path');
 const { score } = require('./lib/score');
 const { walkFixtures } = require('./lib/fixtures');
 const { findTokens } = require('./lib/scenario');

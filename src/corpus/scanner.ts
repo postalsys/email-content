@@ -177,6 +177,7 @@ export async function scanCorpus(options: ScanOptions): Promise<ScanSummary> {
 
     /** First failure that made the run untrustworthy. Set once, rethrown after cleanup. */
     let fatal: Error | null = null;
+    let interrupted = false;
 
     const pool = new WorkerPool<ScanTask, ScanResult>({
         workerPath: resolveWorkerPath(),
@@ -203,7 +204,6 @@ export async function scanCorpus(options: ScanOptions): Promise<ScanSummary> {
     let processed = 0;
     let failed = 0;
     let skipped = 0;
-    let interrupted = false;
     let batch: ScanRow[] = [];
 
     const flush = () => {
