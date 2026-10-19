@@ -104,8 +104,11 @@ A single test file: `npm run build:test && node --test .build-test/test/extract.
 further with `--test-name-pattern="<name>"`. ESLint is the shared Postal Systems flat config (the
 CommonJS form of nodemailer's), with repo-specific overrides at the end of `eslint.config.js`.
 
-`typescript` is held on 5.x in `.ncurc.js`. TypeScript 6 builds byte-identical output but rejects
-`moduleResolution: "node"` without `ignoreDeprecations: "6.0"`, so moving is a tsconfig decision.
+`typescript` is held on 6.x in `.ncurc.js` (TypeScript 7, the native port, is a deliberate
+migration). TypeScript 6 deprecates `moduleResolution: "node"`, so `tsconfig.json` sets
+`ignoreDeprecations: "6.0"`; the emitted `dist/` is byte-identical to what 5.9.3 produced. Moving
+to `node16` resolution is not a drop-in (dynamic imports need `.js` extensions, 4 files emit
+differently).
 
 ## Before committing
 
