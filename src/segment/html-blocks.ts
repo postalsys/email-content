@@ -468,8 +468,11 @@ const CLOSED_BY_OPENING = closeTable({
     li: ['li'],
     p: ['p', 'div'],
     b: ['div'],
-    td: ['td', 'th'],
-    th: ['td', 'th'],
+    td: ['td', 'th', 'tr', 'tbody', 'tfoot'],
+    th: ['td', 'th', 'tr', 'tbody', 'tfoot'],
+    tr: ['tr', 'tbody', 'tfoot'],
+    thead: ['tbody', 'tfoot'],
+    tbody: ['tbody', 'tfoot'],
     h1: ['h1'],
     h2: ['h2'],
     h3: ['h3'],
@@ -485,8 +488,11 @@ const CLOSED_BY_CLOSING = closeTable({
     b: ['div'],
     i: ['div'],
     p: ['div'],
-    td: ['tr', 'table'],
-    th: ['tr', 'table'],
+    td: ['tr', 'table', 'thead', 'tbody', 'tfoot'],
+    th: ['tr', 'table', 'thead', 'tbody', 'tfoot'],
+    tr: ['table', 'thead', 'tbody', 'tfoot'],
+    tbody: ['table'],
+    tfoot: ['table'],
     dt: ['dl', 'body', 'html'],
     dd: ['dl', 'body', 'html']
 });
@@ -609,8 +615,9 @@ export function scanMarkup(html: string): { unclosedTags: number; textRuns: numb
             closeElement(stack, name);
             continue;
         }
-        const top = stack[stack.length - 1];
-        if (!selfClosing && top !== undefined && CLOSED_BY_OPENING.get(top)?.has(name)) {
+        // A start tag keeps closing open elements for as long as the new top is one it closes too,
+        // so "<tr>" inside "<tr><td>" closes the cell and then the row.
+        while (!selfClosing && stack.length && CLOSED_BY_OPENING.get(stack[stack.length - 1] as string)?.has(name)) {
             stack.pop();
         }
         if (RAW_TEXT_TAGS.has(name.toLowerCase())) {

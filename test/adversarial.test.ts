@@ -379,7 +379,11 @@ describe('hostile input stays bounded', () => {
             '<a>x</a!>',
             '<tr>',
             '<Br>',
-            '<ul><li><b>x</ul>'
+            '<ul><li><b>x</ul>',
+            '<table><tr><td>x',
+            '<tbody><tr><td><b>x</tbody>',
+            '<tr><td>a<td>b',
+            '<tbody><tr><td>x'
         ];
         for (const unit of unbalanced) {
             const html = unit.repeat(20);
@@ -395,6 +399,7 @@ describe('hostile input stays bounded', () => {
             '<b>x</b>',
             `<pre>${'<b>'.repeat(5)}</pre>`,
             '<!--<b>-->',
+            '<table><tfoot><tr><td>x</table>',
             '<br/>',
             '<div/>'
         ]) {
