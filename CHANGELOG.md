@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.17](https://github.com/postalsys/email-content/compare/v0.1.16...v0.1.17) (2026-10-19)
+
+
+### Bug Fixes
+
+* bump libmime to 5.5.2 and node-html-parser to 9.0.5 ([20df1e1](https://github.com/postalsys/email-content/commit/20df1e130bc7543af43bbbe4094858431a05ed27))
+
 ## [0.1.16](https://github.com/postalsys/email-content/compare/v0.1.15...v0.1.16) (2026-10-18)
 
 
