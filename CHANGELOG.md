@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.18](https://github.com/postalsys/email-content/compare/v0.1.17...v0.1.18) (2026-10-22)
+
+
+### Bug Fixes
+
+* update dependencies ([3da04ed](https://github.com/postalsys/email-content/commit/3da04edccff82f93ee0f5ce6c25f4a396f04b37c))
+
 ## [0.1.17](https://github.com/postalsys/email-content/compare/v0.1.16...v0.1.17) (2026-10-19)
 
 
