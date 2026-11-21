@@ -390,6 +390,22 @@
             "pattern": "^\\s*(?=.*[0-9٠-٩۰-۹]{1,2}[:.][0-9٠-٩۰-۹]{2}).{3,200}?(写到|寫到|写道|寫道)\\s*[:：៖]{1,2}\\s*$"
         },
         {
+            "id": "x_addr_wrote_cjk",
+            "lang": "*",
+            "comment": "Chinese, Japanese and Korean attributions with no time on the line: '张伟 <wei@example.cn> 写道：', '山田太郎 <yamada@example.jp> さんは書きました:', '김민수 <minsu@example.kr>님이 작성:'. Requires an address in angle brackets right before the verb, since '他在信中写道：' is ordinary prose.",
+            "strength": 0.9,
+            "flags": "i",
+            "pattern": "^\\s*.{0,160}?<[^<>\\s@]+@[^<>\\s]+>\\s*(写到|寫到|写道|寫道|さんは書きました|さんは書き込みました|님이\\s*작성|님이\\s*보낸\\s*메시지)\\s*[:：]{1,2}\\s*$"
+        },
+        {
+            "id": "gmail_date_addr_ja",
+            "lang": "ja",
+            "comment": "Gmail's Japanese attribution, a date with year, month and day signs, a clock time, then name and address and a colon with no verb: '2026年9月29日(火) 12:33 山田太郎 <yamada@example.jp>:'.",
+            "strength": 0.95,
+            "flags": "i",
+            "pattern": "^\\s*\\d{4}\\s*年\\s*\\d{1,2}\\s*月\\s*\\d{1,2}\\s*日.{0,12}?\\d{1,2}:\\d{2}\\s.{0,120}?<[^<>\\s@]+@[^<>\\s]+>\\s*[:：]\\s*$"
+        },
+        {
             "id": "x_nevesht_fa",
             "lang": "fa",
             "comment": "Persian: '۷ مهر ۱۴۰۵ ساعت ۱۰:۰۳, \"Marta Kask\" <...> نوشت:'. The digit lookahead accepts Persian and Arabic-Indic digits. Requires a clock time on the line, which attribution lines carry and prose rarely does.",
