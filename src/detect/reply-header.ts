@@ -50,13 +50,19 @@ const MAX_CHECKED_VALUE_LENGTH = 300;
  *
  * The month stems cover the languages the quoted header field names already cover, because a Sent
  * field whose value the date check cannot read contributes no date role, and the block then only
- * qualifies through a subject field.
+ * qualifies through a subject field. Chinese, Japanese and Korean dates are written with month and
+ * day signs ('9月29日', '9월 29일').
  */
 const DATE_VALUE =
-    /(\d{1,4}[./-]\d{1,2}[./-]\d{1,4}|\b\d{1,2}:\d{2}\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|mon|tue|wed|thu|fri|sat|sun|maj|okt|sty|lut|kwi|cze|lip|sie|wrz|paz|lis|gru|tammi|helmi|maalis|huhti|touko|kesä|heinä|elo|syys|loka|marras|joulu)[a-zäö]*\.?\b|(^|\s)(янв|фев|мар|апр|ма[йя]|июн|июл|авг|сен|окт|ноя|дек)|\b(esmaspäev|teisipäev|kolmapäev|neljapäev|reede|laupäev|pühapäev|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b)/i;
+    /(\d{1,4}[./-]\d{1,2}[./-]\d{1,4}|\b\d{1,2}:\d{2}\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|mon|tue|wed|thu|fri|sat|sun|maj|okt|sty|lut|kwi|cze|lip|sie|wrz|paz|lis|gru|tammi|helmi|maalis|huhti|touko|kesä|heinä|elo|syys|loka|marras|joulu)[a-zäö]*\.?\b|(^|\s)(янв|фев|мар|апр|ма[йя]|июн|июл|авг|сен|окт|ноя|дек)|\b(esmaspäev|teisipäev|kolmapäev|neljapäev|reede|laupäev|pühapäev|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b|\d{1,2}\s*[\u6708\uC6D4]\s*\d{1,2}\s*[\u65E5\uC77C])/i;
 
+/**
+ * The field value after the first colon, ASCII or full width. Chinese, Japanese and Korean Outlook
+ * write either, and with a full width one the first ASCII colon is inside the clock time, which
+ * would leave '18' as the value of '发送时间：2026年9月29日 10:18'.
+ */
 function valueOf(line: string): string {
-    const colon = line.indexOf(':');
+    const colon = line.search(/[:\uFF1A]/);
     return colon === -1 ? '' : line.slice(colon + 1).trim();
 }
 
