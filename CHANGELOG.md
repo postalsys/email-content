@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.23](https://github.com/postalsys/email-content/compare/v0.1.22...v0.1.23) (2026-11-21)
+
+
+### Bug Fixes
+
+* recognize Chinese, Japanese and Korean quote headers ([#29](https://github.com/postalsys/email-content/issues/29)) ([0119bd0](https://github.com/postalsys/email-content/commit/0119bd0d7f66ea408f8740fc9db6937800695ad1))
+
 ## [0.1.22](https://github.com/postalsys/email-content/compare/v0.1.21...v0.1.22) (2026-11-15)
 
 
